@@ -1,0 +1,133 @@
+apply plugin: 'com.android.library'
+apply from: '../shared/keepUnitySymbols.gradle'
+**APPLY_PLUGINS**
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+**DEPS**}
+
+android {
+    namespace "com.unity3d.player"
+    ndkPath "**NDKPATH**"
+    ndkVersion "**NDKVERSION**"
+
+    compileSdk **APIVERSION**
+    buildToolsVersion = "**BUILDTOOLS**"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        minSdk **MINSDK**
+        targetSdk **TARGETSDK**
+        ndk {
+            abiFilters **ABIFILTERS**
+            debugSymbolLevel **DEBUGSYMBOLLEVEL**
+        }
+        versionCode **VERSIONCODE**
+        versionName '**VERSIONNAME**'
+        consumerProguardFiles 'proguard-unity.txt'**USER_PROGUARD**
+**DEFAULT_CONFIG_SETUP**
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    androidResources {
+        noCompress = **BUILTIN_NOCOMPRESS** + unityStreamingAssets.tokenize(', ')
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }**PACKAGING**
+
+    // Include libc++_shared.so
+    task copyLibcppShared {
+        doLast {
+            def ndkDir = android.ndkDirectory
+            def abiFilters = android.defaultConfig.ndk.abiFilters
+            def destDir = file("$projectDir/src/main/jniLibs")
+
+            // Mapping from ABI to architecture triple (for NDK 23+)
+            def abiToTriple = [
+                'arm64-v8a': 'aarch64-linux-android',
+                'armeabi-v7a': 'arm-linux-androideabi',
+                'x86': 'i686-linux-android',
+                'x86_64': 'x86_64-linux-android',
+                'riscv64': 'riscv64-linux-android'
+            ]
+
+            // Find the prebuilt directory (usually there's only one)
+            def prebuiltDir = null
+            def prebuiltBase = file("$ndkDir/toolchains/llvm/prebuilt")
+            if (prebuiltBase.exists()) {
+                def prebuiltDirs = prebuiltBase.listFiles()?.findAll { it.isDirectory() }
+                if (prebuiltDirs && prebuiltDirs.size() > 0) {
+                    prebuiltDir = prebuiltDirs[0]
+                }
+            }
+
+            abiFilters.each { abi ->
+                def copied = false
+
+                // Try NDK 23+ path first
+                if (prebuiltDir != null) {
+                    def triple = abiToTriple[abi]
+                    if (triple != null) {
+                        def libcppPath = file("$prebuiltDir/sysroot/usr/lib/$triple/libc++_shared.so")
+                        if (libcppPath.exists()) {
+                            def destAbiDir = file("$destDir/$abi")
+                            copy {
+                                from libcppPath
+                                into destAbiDir
+                            }
+                            copied = true
+                        }
+                    }
+                }
+
+                // Fallback to old NDK path (NDK 22 and earlier)
+                if (!copied) {
+                    def libcppPath = file("$ndkDir/sources/cxx-stl/llvm-libc++/libs/$abi/libc++_shared.so")
+                    if (libcppPath.exists()) {
+                        def destAbiDir = file("$destDir/$abi")
+                        copy {
+                            from libcppPath
+                            into destAbiDir
+                        }
+                        copied = true
+                    }
+                }
+
+                if (!copied) {
+                    logger.warn("Could not find libc++_shared.so for $abi in NDK")
+                }
+            }
+        }
+    }
+
+    task cleanCopyLibcppShared {
+        doLast {
+            def destDir = file("$projectDir/src/main/jniLibs")
+            def abiFilters = android.defaultConfig.ndk.abiFilters
+
+            abiFilters.each { abi ->
+                def libcppFile = file("$destDir/$abi/libc++_shared.so")
+                if (libcppFile.exists()) {
+                    libcppFile.delete()
+                    println "Deleted libc++_shared.so for $abi"
+                }
+            }
+        }
+    }
+    clean.dependsOn 'cleanCopyLibcppShared'
+
+    tasks.whenTaskAdded { task ->
+        if (task.name == "mergeDebugJniLibFolders" || task.name == "mergeReleaseJniLibFolders") {
+            task.dependsOn("copyLibcppShared")
+        }
+    }
+}
+**IL_CPP_BUILD_SETUP**
+**SOURCE_BUILD_SETUP**
+**EXTERNAL_SOURCES**

@@ -1,0 +1,55 @@
+# Unity 생성 폴더
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/Captures/
+*_BurstDebugInformation_DoNotShip/
+
+# IDE / 자동 생성 프로젝트 파일
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+omnisharp.json
+
+# 빌드 결과물
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-buildid.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MediaPipeUnityPlugin 네이티브 라이브러리 빌드용 소스 (Unity 프로젝트 실행에는 불필요)
+/docker/
+/mediapipe_api/
+/third_party/
+/docs/
+/WORKSPACE
+/build.py
+/platform_mappings
+/packages.config
+/issue-template-version-updater.js
+
+# 백업 파일
+*.bak
