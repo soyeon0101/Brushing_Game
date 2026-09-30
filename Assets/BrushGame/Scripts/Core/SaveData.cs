@@ -56,6 +56,7 @@ namespace BrushGame
     public GuardianSettings settings = new GuardianSettings();
     public List<StickerRecord> stickers = new List<StickerRecord>();
     public List<string> curedPatientIds = new List<string>();
+    public List<string> badgeIds = new List<string>();
     public int treatmentCount;
 
     /// <summary>닉네임까지 정해야 프로필이 만들어진 것으로 본다</summary>
@@ -66,6 +67,18 @@ namespace BrushGame
     public static MealSlot SlotAt(DateTime time) =>
       time.Hour < 11 ? MealSlot.Morning : time.Hour < 17 ? MealSlot.Lunch : MealSlot.Evening;
 
-    public bool HasSticker(string date, MealSlot slot) => stickers.Exists(s => s.date == date && s.slot == slot);
+    public static string SlotName(MealSlot slot) => slot switch
+    {
+      MealSlot.Morning => "아침",
+      MealSlot.Lunch => "점심",
+      _ => "저녁",
+    };
+
+    /// <summary>로비 카드, 환자 소개 제목 ("아침에 온 친구")</summary>
+    public static string VisitorTitle(MealSlot slot) => $"{SlotName(slot)}에 온 친구";
+
+    public bool HasSticker(string date, MealSlot slot) => FindSticker(date, slot) != null;
+
+    public StickerRecord FindSticker(string date, MealSlot slot) => stickers.Find(s => s.date == date && s.slot == slot);
   }
 }

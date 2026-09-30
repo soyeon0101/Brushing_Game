@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace BrushGame
 {
   /// <summary>
-  ///   이번 주 칭찬 스티커판 (월~일 × 아침/점심/저녁).
+  ///   칭찬 스티커판 (월~일 × 아침/점심/저녁). 이번 주부터 보여주고, 화살표로 지난 주들을 넘겨 본다.
   ///   치료 직후에는 방금 받은 칭찬 도장이 크게 나타났다가 칸에 쾅 찍히고 반짝인다.
   ///   찍힌 도장은 손으로 찍은 것처럼 칸마다 조금씩 기울어져 있다.
   /// </summary>
@@ -19,6 +19,10 @@ namespace BrushGame
     [Tooltip("요일 × 끼니 순서 (월아침, 월점심, 월저녁, 화아침...)")]
     [SerializeField] private GameObject[] _stickers;
     [SerializeField] private Button _backButton;
+    [Tooltip("지난 주로 (첫 도장을 받은 주까지)")]
+    [SerializeField] private Button _prevWeekButton;
+    [Tooltip("다음 주로 (이번 주까지)")]
+    [SerializeField] private Button _nextWeekButton;
     [Tooltip("도장이 찍힐 때 퍼지는 반짝임 (없어도 됨)")]
     [SerializeField] private RectTransform _stampFx;
 
@@ -36,14 +40,34 @@ namespace BrushGame
     private Image _stampImage;
     private float _stampTilt;
     private float _t = -1f;
+    private SaveData _data;
+    private StickerRecord _newSticker;
+    private int _weekOffset;
 
     public event Action BackPressed;
 
     /// <param name="newSticker">방금 받은 도장. 스티커판만 보러 온 경우 null</param>
     public void Setup(SaveData data, StickerRecord newSticker)
     {
-      var today = DateTime.Today;
-      var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+      _data = data;
+      _newSticker = newSticker;
+      ShowWeek(0);
+    }
+
+    /// <param name="offset">0 = 이번 주, -1 = 지난주, ...</param>
+    private void ShowWeek(int offset)
+    {
+      _weekOffset = offset;
+      var thisMonday = BadgeRules.MondayOf(DateTime.Today);
+      var monday = thisMonday.AddDays(7 * offset);
+      var first = BadgeRules.FirstDay(_data);
+      _prevWeekButton.gameObject.SetActive(first.HasValue && BadgeRules.MondayOf(first.Value) < monday);
+      _nextWeekButton.gameObject.SetActive(offset < 0);
+
+      // 방금 받은 도장은 이번 주를 처음 보여줄 때만 찍는다
+      var newSticker = offset == 0 ? _newSticker : null;
+      _newSticker = null;
+      var data = _data;
       var count = 0;
       _stamp = null;
       _t = -1f;
@@ -85,12 +109,29 @@ namespace BrushGame
         _t = 0f;
       }
       _title.text = newSticker != null ? "칭찬 도장을 받았어요!" : "칭찬 스티커판";
-      _summary.text = $"이번 주 칭찬 도장 {count}개";
+      _summary.text = $"{WeekLabel(offset, monday)} 칭찬 도장 {count}개";
+    }
+
+    private static string WeekLabel(int offset, DateTime monday)
+    {
+      if (offset == 0)
+      {
+        return "이번 주";
+      }
+      if (offset == -1)
+      {
+        return "지난주";
+      }
+      var sunday = monday.AddDays(Days - 1);
+      var end = sunday.Month == monday.Month ? $"{sunday.Day}일" : $"{sunday.Month}월 {sunday.Day}일";
+      return $"{monday.Month}월 {monday.Day}일~{end}";
     }
 
     private void Awake()
     {
       _backButton.onClick.AddListener(() => BackPressed?.Invoke());
+      _prevWeekButton.onClick.AddListener(() => ShowWeek(_weekOffset - 1));
+      _nextWeekButton.onClick.AddListener(() => ShowWeek(_weekOffset + 1));
     }
 
     private void Update()

@@ -53,6 +53,10 @@ namespace BrushGame
     [SerializeField] private Button _pauseButton;
     [SerializeField] private Button _soundButton;
     [SerializeField] private Text _soundLabel;
+    [Tooltip("소리 버튼 그림. 켬/끔 그림이 있으면 글자 대신 그림을 바꾼다")]
+    [SerializeField] private Image _soundIcon;
+    [SerializeField] private Sprite _soundOnSprite;
+    [SerializeField] private Sprite _soundOffSprite;
 
     [Header("안내")]
     [SerializeField] private Image _guidePortrait;
@@ -473,7 +477,14 @@ namespace BrushGame
 
     private void RefreshSoundLabel()
     {
-      _soundLabel.text = SaveStore.Data.settings.sound ? "소리\n켬" : "소리\n끔";
+      var on = SaveStore.Data.settings.sound;
+      var useIcon = _soundIcon != null && _soundOnSprite != null && _soundOffSprite != null;
+      _soundLabel.gameObject.SetActive(!useIcon);
+      _soundLabel.text = on ? "소리\n켬" : "소리\n끔";
+      if (useIcon)
+      {
+        _soundIcon.sprite = on ? _soundOnSprite : _soundOffSprite;
+      }
     }
 
     /// <summary>환자마다 바뀌는 그림 자리. 그림이 없으면 처음 모습(임시 도형)으로 되돌린다</summary>

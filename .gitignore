@@ -59,3 +59,8 @@ Thumbs.db
 
 # MediaPipe 플러그인 변경 이력 (게임과 무관)
 /CHANGELOG.md
+
+# 3D 모델 (용량이 커서 저장소에 넣지 않는다. 로컬에만 둔다)
+/Assets/BrushGame/Art/Models/
+/Assets/BrushGame/Art/Models.meta
+/ArtDrafts/Models/

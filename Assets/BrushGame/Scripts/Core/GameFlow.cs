@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BrushGame
@@ -7,7 +8,7 @@ namespace BrushGame
   ///   화면 전환의 유일한 기준. 화면들은 버튼 이벤트만 알리고, 어디로 갈지는 여기서 정한다.
   ///   첫 실행: 타이틀 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
   ///   이후:   타이틀 → 로비
-  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → 로비
+  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → (새 배지가 있으면 배지함) → 로비
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
@@ -28,12 +29,14 @@ namespace BrushGame
     [SerializeField] private BrushingScreen _brushing;
     [SerializeField] private CompleteScreen _complete;
     [SerializeField] private StickerScreen _stickers;
+    [SerializeField] private BadgeScreen _badges;
     [SerializeField] private GuardianSettingsPanel _settings;
 
     private ScreenBase _current;
     private PlayerProfile _draft = new PlayerProfile();
     private PatientInfo _patient;
     private StickerRecord _newSticker;
+    private List<BadgeInfo> _newBadges = new List<BadgeInfo>();
 
     private static SaveData Data => SaveStore.Data;
 
@@ -89,8 +92,9 @@ namespace BrushGame
 
       _lobby.TreatPressed += () =>
       {
-        _patient = _catalog.PatientForVisit(Data.treatmentCount);
-        _patientIntro.Setup(_patient);
+        var now = DateTime.Now;
+        _patient = _catalog.PatientFor(Data, now);
+        _patientIntro.Setup(_patient, SaveData.SlotAt(now));
         Show(_patientIntro);
       };
       _lobby.BookPressed += () =>
@@ -129,7 +133,23 @@ namespace BrushGame
         _stickers.Setup(Data, _newSticker);
         Show(_stickers);
       };
-      _stickers.BackPressed += ShowLobby;
+      _stickers.BackPressed += () =>
+      {
+        if (_newBadges.Count == 0)
+        {
+          ShowLobby();
+          return;
+        }
+        _badges.Setup(_catalog, Data, _newBadges);
+        _newBadges = new List<BadgeInfo>();
+        Show(_badges);
+      };
+      _lobby.BadgesPressed += () =>
+      {
+        _badges.Setup(_catalog, Data, null);
+        Show(_badges);
+      };
+      _badges.BackPressed += ShowLobby;
 
       Show(_title);
     }
@@ -137,7 +157,7 @@ namespace BrushGame
     private ScreenBase[] AllScreens() => new ScreenBase[]
     {
       _title, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _stickers,
+      _cameraReady, _loading, _brushing, _complete, _stickers, _badges,
     };
 
     private void Show(ScreenBase screen)
@@ -162,11 +182,12 @@ namespace BrushGame
     private void ShowLobby()
     {
       var character = _catalog.FindCharacter(Data.profile.characterId);
-      _lobby.Setup(Data, character, _catalog.PatientForVisit(Data.treatmentCount));
+      var now = DateTime.Now;
+      _lobby.Setup(Data, character, _catalog.PatientFor(Data, now), SaveData.SlotAt(now));
       Show(_lobby);
     }
 
-    /// <summary>치료 기록: 스티커(같은 날 같은 끼니는 한 장), 도감, 치료 횟수</summary>
+    /// <summary>치료 기록: 스티커(같은 날 같은 끼니는 한 장), 도감, 치료 횟수, 새 배지</summary>
     private void OnTreatmentComplete()
     {
       var now = DateTime.Now;
@@ -183,6 +204,7 @@ namespace BrushGame
         Data.curedPatientIds.Add(_patient.id);
       }
       Data.treatmentCount++;
+      _newBadges = BadgeRules.Evaluate(_catalog, Data);
       SaveStore.Save();
 
       _complete.Setup(_patient);

@@ -36,6 +36,10 @@ namespace BrushGame
     [Tooltip("체력만큼 가로로 줄어드는 채움 (anchorMax.x)")]
     [SerializeField] private RectTransform _hpFill;
 
+    [Header("3D 캐릭터 (있으면 2D 프레임 대신 쓴다)")]
+    [SerializeField] private HeroPuppet _heroPuppet;
+    [SerializeField] private VillainPuppet _villainPuppet;
+
     [Header("연출")]
     [SerializeField, Min(0.01f)] private float _enterSec = 0.45f;
     [SerializeField, Min(0.01f)] private float _hitSec = 1f;
@@ -67,6 +71,15 @@ namespace BrushGame
       _heroHome = _hero.anchoredPosition;
       _villainHome = _villain.anchoredPosition;
       _hitHome = _hitEffect.anchoredPosition;
+      // 3D 캐릭터가 있으면 2D 그림은 숨긴다 (그림 자리 안의 RawImage가 3D를 보여준다)
+      if (_heroPuppet != null)
+      {
+        _heroImage.enabled = false;
+      }
+      if (_villainPuppet != null)
+      {
+        _villainImage.enabled = false;
+      }
     }
 
     /// <summary>
@@ -87,12 +100,31 @@ namespace BrushGame
       _hitT = _defeatT = -1f;
       _phase = _phaseTarget = 0f;
       _lastSwingTime = float.NegativeInfinity;
+      SetPuppetsVisible(true);
       Apply();
     }
 
     public void Hide()
     {
       gameObject.SetActive(false);
+    }
+
+    // 양치 화면이 꺼질 때도 3D 무대(화면 밖에 있음)를 같이 끈다
+    private void OnDisable()
+    {
+      SetPuppetsVisible(false);
+    }
+
+    private void SetPuppetsVisible(bool visible)
+    {
+      if (_heroPuppet != null)
+      {
+        _heroPuppet.SetVisible(visible);
+      }
+      if (_villainPuppet != null)
+      {
+        _villainPuppet.SetVisible(visible);
+      }
     }
 
     /// <summary>
@@ -246,8 +278,23 @@ namespace BrushGame
       _hpFill.anchorMax = max;
 
       // 친구의 마법 동작은 칫솔질 진행(swing)으로, 충치균의 움찔은 반짝이 이후 시간(hit)으로
-      ApplyFrames(_heroImage, _heroFrames, swinging && !_idle, swing, loopAction: true);
-      ApplyFrames(_villainImage, _villainFrames, hitting, hit, loopAction: false);
+      var finish = _defeatT >= 0f ? _defeatT / _defeatSec : -1f;
+      if (_heroPuppet != null)
+      {
+        _heroPuppet.Pose(_time, swinging && !_idle, swing, _burstAt, _idle, finish);
+      }
+      else
+      {
+        ApplyFrames(_heroImage, _heroFrames, swinging && !_idle, swing, loopAction: true);
+      }
+      if (_villainPuppet != null)
+      {
+        _villainPuppet.Pose(_time, hitting ? hit : -1f, _idle, finish);
+      }
+      else
+      {
+        ApplyFrames(_villainImage, _villainFrames, hitting, hit, loopAction: false);
+      }
     }
 
     private void ApplyFrames(Image image, Frames frames, bool acting, float k, bool loopAction)
