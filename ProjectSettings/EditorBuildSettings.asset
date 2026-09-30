@@ -6,8 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/BrushGame/Scenes/BrushPrototype_v2.unity
-    guid: dba01e1f1780749438c0dc0899fff902
+    path: Assets/BrushGame/Scenes/Main.unity
+    guid: b27c7f0c10c786b41af546c06ea17b2e
+  - enabled: 0
+    path: Assets/BrushGame/Scenes/BrushCameraTest.unity
+    guid: dd01db7dcd8843748b52e7bda500a64e
   - enabled: 0
     path: Assets/MediaPipeUnity/Samples/Scenes/Object Detection/Object Detection.unity
     guid: d3734ffcdd3a40779bdd8de2c55bee2f

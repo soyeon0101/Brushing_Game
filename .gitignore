@@ -53,3 +53,9 @@ Thumbs.db
 
 # 백업 파일
 *.bak
+
+# 로컬 설정
+.mcp.json
+
+# MediaPipe 플러그인 변경 이력 (게임과 무관)
+/CHANGELOG.md

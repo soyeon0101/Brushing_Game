@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4aa5f27248a27974684d618f1c238714, type: 3}
+  m_Name: GameCatalog
+  m_EditorClassIdentifier: 
+  ages: 04000000050000000600000007000000
+  characters:
+  - id: princess
+    displayName: "\uACF5\uC8FC"
+    image: {fileID: 21300000, guid: 982bbc29c8c901e43a755d6e2909861b, type: 3}
+    portrait: {fileID: 21300000, guid: 0a5fceb9da633934db63cad951f0c2fd, type: 3}
+  - id: prince
+    displayName: "\uC655\uC790"
+    image: {fileID: 21300000, guid: 58ca5104d974c124493a705605b460ad, type: 3}
+    portrait: {fileID: 21300000, guid: 49bd24cca95af1d48bc8dbe91e5f8f31, type: 3}
+  patients:
+  - id: zig
+    displayName: "\uC9C0\uADF8"
+    before: {fileID: 21300000, guid: 15de36abd6067ca42a10421280f90faa, type: 3}
+    after: {fileID: 21300000, guid: 2b7b44d98b648634d8d8eacf1fc3d8d3, type: 3}
+    portrait: {fileID: 21300000, guid: b49bebb983dac65428c08931be35d64e, type: 3}
+    face: {fileID: 21300000, guid: 35df616918676de4f9b9a51b7f4f6de2, type: 3}
+    mouthTop: {fileID: 21300000, guid: e5ad81d68f5443f4c913d559070231e3, type: 3}
+    mouthBottom: {fileID: 21300000, guid: f74a3a4f77cf27d4c8e1506298ebf877, type: 3}
+    requestLine: "\uC774 \uC0AC\uC774\uC5D0 \uC824\uB9AC\uAC00 \uB07C\uC5C8\uC5B4!
+      \uB3C4\uC640\uC918!"
+    thanksLine: "\uD070 \uBBF8\uC18C\uAC00 \uD070 \uBAA8\uD5D8\uC73C\uB85C \uC774\uC5B4\uC838\uC694!"
+  - id: blu
+    displayName: "\uBE14\uB8E8"
+    before: {fileID: 21300000, guid: 652ea6de0bb0378449f988f5fbe50aa0, type: 3}
+    after: {fileID: 21300000, guid: 5ec5e9938056f6143a13888a44ca426a, type: 3}
+    portrait: {fileID: 21300000, guid: 6637305c037ae2a4f97ab8dee2ca1afd, type: 3}
+    face: {fileID: 0}
+    mouthTop: {fileID: 0}
+    mouthBottom: {fileID: 0}
+    requestLine: "\uAC70\uD488\uC73C\uB85C \uAE68\uB057\uD558\uAC8C \uB2E6\uC544\uC904\uB798?"
+    thanksLine: "\uAC70\uD488\uC774 \uBAA8\uB4E0 \uAC78 \uB354 \uAE68\uB057\uD558\uAC8C
+      \uB9CC\uB4E4\uC5B4\uC694!"
+  - id: pip
+    displayName: "\uD54D"
+    before: {fileID: 21300000, guid: ee39585ccc7d8a14e8802e7ee4323325, type: 3}
+    after: {fileID: 21300000, guid: 490d7b8d893a57a41a98a6959fce36cf, type: 3}
+    portrait: {fileID: 21300000, guid: 3423a30bf54189d47bd4d2594057e758, type: 3}
+    face: {fileID: 0}
+    mouthTop: {fileID: 0}
+    mouthBottom: {fileID: 0}
+    requestLine: "\uB108\uBB34 \uC2E0\uB098\uAC8C \uB6F0\uC5B4\uB180\uB2E4\uAC00
+      \uC591\uCE58\uB97C \uAE5C\uBE61\uD588\uC5B4! \uB3C4\uC640\uC918!"
+    thanksLine: "\uB2E6\uACE0, \uC6C3\uACE0, \uBC18\uBCF5!"
+  - id: rex
+    displayName: "\uB809\uC2A4"
+    before: {fileID: 21300000, guid: 6b9383b3cd22cc54ea4875b1f9187a35, type: 3}
+    after: {fileID: 21300000, guid: b887d70332f288248b3813475f3628b3, type: 3}
+    portrait: {fileID: 21300000, guid: 75b0894adead47943b3daa96ff6ffce8, type: 3}
+    face: {fileID: 0}
+    mouthTop: {fileID: 0}
+    mouthBottom: {fileID: 0}
+    requestLine: "\uC529\uC529\uD55C \uB098\uB3C4 \uC774\uAC00 \uC544\uD504\uB2C8\uAE4C
+      \uD798\uC774 \uC548 \uB098\u2026 \uB3C4\uC640\uC904\uB798?"
+    thanksLine: "\uAE68\uB057\uD55C \uC774\uAC00 \uD070 \uAFC8\uC758 \uC5F0\uB8CC\uC608\uC694!"
+  - id: ollie
+    displayName: "\uC62C\uB9AC"
+    before: {fileID: 21300000, guid: 703fb46ecc5ef764ea84e45343a68ea9, type: 3}
+    after: {fileID: 21300000, guid: c914a4b28035c1144843c173e4d08469, type: 3}
+    portrait: {fileID: 21300000, guid: 44d4f480885f27644b17d869f50cfb67, type: 3}
+    face: {fileID: 0}
+    mouthTop: {fileID: 0}
+    mouthBottom: {fileID: 0}
+    requestLine: "\uC6B0\uC8FC \uD0D0\uD5D8\uC744 \uD558\uB2E4\uAC00 \uC774\uC5D0
+      \uC6B0\uC8FC \uBA3C\uC9C0\uAC00 \uC794\uB729 \uAF08\uC5B4!"
+    thanksLine: "\uAE68\uB057\uD55C \uC774\uAC00 \uB354 \uBA40\uB9AC \uD0D0\uD5D8\uD558\uAC8C
+      \uD574\uC918\uC694!"
+  - id: nova
+    displayName: "\uB178\uBC14"
+    before: {fileID: 21300000, guid: 51365da07e404ae4daf3eff040c9d23f, type: 3}
+    after: {fileID: 21300000, guid: ddda40960bdca334388159c5a9442d6e, type: 3}
+    portrait: {fileID: 21300000, guid: fdc46695e6e2a7f498b5716d464550a4, type: 3}
+    face: {fileID: 0}
+    mouthTop: {fileID: 0}
+    mouthBottom: {fileID: 0}
+    requestLine: "\uBC18\uC9DD\uBC18\uC9DD \uBE5B\uB098\uB358 \uC774\uAC00 \uBE5B\uC744
+      \uC783\uC5C8\uC5B4\u2026 \uB3C4\uC640\uC918!"
+    thanksLine: "\uBC1D\uAC8C \uBE5B\uB098\uC694, \uBC14\uB974\uAC8C \uB2E6\uC544\uC694!"

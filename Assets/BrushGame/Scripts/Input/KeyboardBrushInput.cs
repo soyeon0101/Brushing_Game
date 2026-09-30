@@ -21,5 +21,25 @@ namespace BrushGame
     public bool IsBrushing => HandVisible && Input.GetKey(_brushKey);
     public bool IsTooFast => IsBrushing && (Input.GetKey(_fastKey) || Input.GetKey(_fastKeyAlt));
     public float StrokeRate => IsTooFast ? _fastRate : IsBrushing ? _normalRate : 0f;
+    public int StrokeCount { get; private set; }
+
+    private float _strokeT;
+
+    // 누르고 있는 동안 StrokeRate 간격으로 칫솔질 한 번씩
+    private void Update()
+    {
+      var rate = StrokeRate;
+      if (rate <= 0f)
+      {
+        _strokeT = 0f;
+        return;
+      }
+      _strokeT += Time.deltaTime;
+      if (_strokeT >= 1f / rate)
+      {
+        _strokeT = 0f;
+        StrokeCount++;
+      }
+    }
   }
 }

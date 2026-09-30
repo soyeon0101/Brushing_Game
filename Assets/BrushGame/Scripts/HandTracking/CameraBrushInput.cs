@@ -20,6 +20,7 @@ namespace BrushGame.HandTracking
     public bool IsTooFast => _detector != null && _detector.IsTooFast;
     public float StrokeRate => _detector != null ? _detector.StrokeRate : 0f;
     public bool HandVisible => _detector != null && _detector.HandVisible;
+    public int StrokeCount => _detector != null ? _detector.StrokeCount : 0;
 
     private void Update()
     {

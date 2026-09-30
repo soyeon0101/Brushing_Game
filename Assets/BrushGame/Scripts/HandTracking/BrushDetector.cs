@@ -74,6 +74,9 @@ namespace BrushGame.HandTracking
     public float StrokeRate { get; private set; }
     public bool HandVisible { get; private set; }
 
+    /// <summary>지금까지 센 왕복(방향 반전) 횟수. 하나 늘 때마다 칫솔질 한 번으로 본다</summary>
+    public int StrokeCount { get; private set; }
+
     /// <summary>마지막 프레임에서 minHandSize를 넘은 손 개수</summary>
     public int VisibleHandCount => _visibleCount;
     public int TrackCapacity => _tracks.Length;
@@ -126,8 +129,12 @@ namespace BrushGame.HandTracking
 
         // 이동량을 손 크기로 정규화하는 대신, 반전 기준 폭을 손 크기에 비례시킨다 (같은 효과)
         var amplitude = _settings.minAmplitude * track.size;
-        track.x.Add(track.pos.x, amplitude, now);
-        track.y.Add(track.pos.y, amplitude, now);
+        var reversedX = track.x.Add(track.pos.x, amplitude, now);
+        var reversedY = track.y.Add(track.pos.y, amplitude, now);
+        if (reversedX || reversedY)
+        {
+          StrokeCount++;
+        }
         track.lastSeen = now;
         track.seenLastFrame = true;
       }
@@ -255,13 +262,14 @@ namespace BrushGame.HandTracking
         _dir = 0;
       }
 
-      public void Add(float v, float amplitude, float now)
+      /// <summary>이번 값으로 반전이 일어났으면 true</summary>
+      public bool Add(float v, float amplitude, float now)
       {
         if (!_started)
         {
           _started = true;
           _min = _max = _extreme = v;
-          return;
+          return false;
         }
 
         switch (_dir)
@@ -290,6 +298,7 @@ namespace BrushGame.HandTracking
               _dir = -1;
               _extreme = v;
               Push(now);
+              return true;
             }
             break;
           default:
@@ -302,9 +311,11 @@ namespace BrushGame.HandTracking
               _dir = 1;
               _extreme = v;
               Push(now);
+              return true;
             }
             break;
         }
+        return false;
       }
 
       public float Rate(float now, float windowSec)
