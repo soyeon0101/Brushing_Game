@@ -32,7 +32,12 @@ namespace BrushGame
     public const int MinZoneSeconds = 20;
     public const int MaxZoneSeconds = 30;
 
+    [Tooltip("전체 소리. 끄면 배경음/효과음 설정과 상관없이 모두 꺼진다")]
     public bool sound = true;
+    [Tooltip("배경음")]
+    public bool music = true;
+    [Tooltip("버튼, 완료 같은 효과음")]
+    public bool effects = true;
     [Tooltip("음성 안내는 아직 없음. 설정값만 저장해 둔다")]
     public bool voiceGuide = true;
     [Tooltip("한 구역을 닦아야 하는 시간 (초)")]
@@ -41,6 +46,7 @@ namespace BrushGame
     public void ApplyAudio()
     {
       AudioListener.volume = sound ? 1f : 0f;
+      SoundManager.ApplySettings();
     }
   }
 

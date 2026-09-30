@@ -119,7 +119,7 @@ namespace BrushGame
       _cameraReady.Finished += () => Show(_loading);
       _loading.Finished += () =>
       {
-        _brushing.Setup(_patient, Data.settings.zoneSeconds);
+        _brushing.Setup(_patient, Data.settings.zoneSeconds, _catalog.FindCharacter(Data.profile.characterId));
         Show(_brushing);
       };
       _brushing.QuitRequested += ShowLobby;
@@ -149,8 +149,27 @@ namespace BrushGame
       }
       _current = screen;
       _cameraFeed.SetActive(screen == _cameraReady || screen == _brushing);
+      PlayMusicFor(screen);
       screen.gameObject.SetActive(true);
       screen.OnShow();
+    }
+
+    /// <summary>양치 화면은 게임 배경음, 완료 화면은 배경음 없이 클리어 효과음, 나머지는 기본 배경음</summary>
+    private void PlayMusicFor(ScreenBase screen)
+    {
+      if (screen == _brushing)
+      {
+        SoundManager.PlayGameplayMusic();
+      }
+      else if (screen == _complete)
+      {
+        SoundManager.StopMusic();
+        SoundManager.PlayClear();
+      }
+      else
+      {
+        SoundManager.PlayMenuMusic();
+      }
     }
 
     private void ShowAgeSelect()

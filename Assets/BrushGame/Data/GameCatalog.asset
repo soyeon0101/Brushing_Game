@@ -18,10 +18,52 @@ MonoBehaviour:
     displayName: "\uACF5\uC8FC"
     image: {fileID: 21300000, guid: 982bbc29c8c901e43a755d6e2909861b, type: 3}
     portrait: {fileID: 21300000, guid: 0a5fceb9da633934db63cad951f0c2fd, type: 3}
+    battle:
+      idle: []
+      action: []
+      stopped: []
+      finish: []
+      loopFps: 4
   - id: prince
     displayName: "\uC655\uC790"
     image: {fileID: 21300000, guid: 58ca5104d974c124493a705605b460ad, type: 3}
     portrait: {fileID: 21300000, guid: 49bd24cca95af1d48bc8dbe91e5f8f31, type: 3}
+    battle:
+      idle:
+      - {fileID: 21300000, guid: 2461cd960d2f27c49a5aed3bdbbc3d79, type: 3}
+      action:
+      - {fileID: 21300000, guid: 7616322be4e72df479be83e878208280, type: 3}
+      - {fileID: 21300000, guid: 90046f123d975794ca4d2bfbf2111b8b, type: 3}
+      - {fileID: 21300000, guid: 7f432f388ba4dcc42b3c8380c9f558e5, type: 3}
+      - {fileID: 21300000, guid: 3c23825cc764fa54e87b46692027331f, type: 3}
+      - {fileID: 21300000, guid: c2a76367945cfd74f8339e8e43a666ba, type: 3}
+      - {fileID: 21300000, guid: 3f45a81ecb7c742408a3c2f5ed6c744e, type: 3}
+      - {fileID: 21300000, guid: 4572cb2abdc86e24d95e713dae513615, type: 3}
+      - {fileID: 21300000, guid: 67c2b819c9578154eb2cd9719aace0ae, type: 3}
+      - {fileID: 21300000, guid: 7d9b66fa28d5dbd4481367a8e40f4a6c, type: 3}
+      - {fileID: 21300000, guid: d7ccc0b4071200f488e6642b16fec976, type: 3}
+      - {fileID: 21300000, guid: 138143fad4af8c44a970f8a1c2f5c2f4, type: 3}
+      - {fileID: 21300000, guid: 0415d9f4d19d51b4292f4264ebd85cda, type: 3}
+      - {fileID: 21300000, guid: 9d6df785d184c3e4e9d1f25d9a0c2725, type: 3}
+      - {fileID: 21300000, guid: 219daccffa75284449168cef0bafbb50, type: 3}
+      - {fileID: 21300000, guid: 424a2d529eb7d56429ce0b533b369d98, type: 3}
+      - {fileID: 21300000, guid: 1ec0d360dbb2a8d4e9225017f5647e88, type: 3}
+      - {fileID: 21300000, guid: f0ef25c12619c214dbec0cb1997aed18, type: 3}
+      - {fileID: 21300000, guid: 1ec1f196962bfd441beeda43f16046c9, type: 3}
+      - {fileID: 21300000, guid: 4434b136ca0cc6742b7f05f8c2959717, type: 3}
+      - {fileID: 21300000, guid: 4e48982d61a26ad4a8172ca2da35c17c, type: 3}
+      - {fileID: 21300000, guid: 7b854899a47b4a14f8117e9333a4560f, type: 3}
+      - {fileID: 21300000, guid: 21a2dc4249fe83d459a1c98a5882251a, type: 3}
+      - {fileID: 21300000, guid: a80f01b9c36e4cb49a5f037376ee1465, type: 3}
+      - {fileID: 21300000, guid: 2190aafd3805dfa4cad451ce67a73505, type: 3}
+      - {fileID: 21300000, guid: 7596074cc1708624999e44f55024cfbc, type: 3}
+      stopped:
+      - {fileID: 21300000, guid: 103f9cc9145b6aa47a685a108755df06, type: 3}
+      - {fileID: 21300000, guid: b867e3743f7bde64cb4eac3b80482449, type: 3}
+      finish:
+      - {fileID: 21300000, guid: 18f2bc7f029ae8542a8819a9caa67e0b, type: 3}
+      - {fileID: 21300000, guid: 744796b2669b67843b31efa55a0f484c, type: 3}
+      loopFps: 4
   patients:
   - id: zig
     displayName: "\uC9C0\uADF8"
