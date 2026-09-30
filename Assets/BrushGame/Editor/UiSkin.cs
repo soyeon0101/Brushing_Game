@@ -20,7 +20,7 @@ namespace BrushGame.EditorTools
     {
       { "AgeSelect", "BG_Soft" }, { "CharacterSelect", "BG_Soft" }, { "Nickname", "BG_Soft" },
       { "Lobby", "BG_Lobby" }, { "PatientBook", "BG_Lobby" }, { "PatientIntro", "BG_Lobby" },
-      { "Complete", "BG_Celebrate" }, { "Stickers", "BG_Celebrate" },
+      { "Complete", "BG_Celebrate" }, { "Stickers", "BG_Celebrate" }, { "Badges", "BG_Celebrate" },
     };
 
     // 제목부터 주 버튼 위까지 흰 판 하나에 담는 화면
@@ -45,7 +45,8 @@ namespace BrushGame.EditorTools
       Debug.Log($"[BrushGame] UI 스킨 {count}곳 적용. 씬을 저장하세요.");
     }
 
-    public static int ApplyAll()
+    /// <param name="scope">이 오브젝트 아래만 적용한다 (새로 만든 화면만 꾸밀 때). null이면 열린 씬 전체</param>
+    public static int ApplyAll(Transform scope = null)
     {
       _rounded = AssetDatabase.LoadAssetAtPath<Sprite>($"{PlaceholderDir}/Rounded.png");
       _circle = AssetDatabase.LoadAssetAtPath<Sprite>($"{PlaceholderDir}/Circle.png");
@@ -54,6 +55,10 @@ namespace BrushGame.EditorTools
 
       foreach (var screen in Object.FindObjectsByType<ScreenBase>(FindObjectsInactive.Include, FindObjectsSortMode.None))
       {
+        if (!InScope(screen, scope))
+        {
+          continue;
+        }
         var name = screen.gameObject.name;
         if (Backgrounds.TryGetValue(name, out var bgName) && Load(bgName) is { } bg)
         {
@@ -90,6 +95,10 @@ namespace BrushGame.EditorTools
 
       foreach (var card in Object.FindObjectsByType<ChoiceCard>(FindObjectsInactive.Include, FindObjectsSortMode.None))
       {
+        if (!InScope(card, scope))
+        {
+          continue;
+        }
         var bg = card.transform.Find("Bg")?.GetComponent<Image>();
         if (bg != null)
         {
@@ -140,7 +149,7 @@ namespace BrushGame.EditorTools
 
       foreach (var button in Object.FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
       {
-        if (!(button.targetGraphic is Image image) || button.GetComponent<ChoiceCard>() != null)
+        if (!InScope(button, scope) || !(button.targetGraphic is Image image) || button.GetComponent<ChoiceCard>() != null)
         {
           continue;
         }
@@ -177,7 +186,8 @@ namespace BrushGame.EditorTools
         else if (image.sprite == _rounded && IsLight(image.color))
         {
           // 보조 버튼: 흰 알약
-          Surface(image, new Color(1f, 1f, 1f, 0.95f), h / 2f);
+          // 키 큰 버튼(그림+이름 카드)은 알약 대신 둥근 네모
+          Surface(image, new Color(1f, 1f, 1f, 0.95f), h > 180f ? 56f : h / 2f);
           Ink_(label);
           count++;
         }
@@ -186,7 +196,7 @@ namespace BrushGame.EditorTools
       // 흰 패널/카드 (선택 카드 제외, 치아처럼 작은 것 제외)
       foreach (var image in Object.FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None))
       {
-        if (image.name == "Sheet" || image.GetComponent<Button>() != null || image.GetComponentInParent<ChoiceCard>(true) != null)
+        if (!InScope(image, scope) || image.name == "Sheet" || image.GetComponent<Button>() != null || image.GetComponentInParent<ChoiceCard>(true) != null)
         {
           continue;
         }
@@ -347,6 +357,8 @@ namespace BrushGame.EditorTools
     {
       Undo.RecordObject(target, "Apply UI Skin");
     }
+
+    private static bool InScope(Component c, Transform scope) => scope == null || c.transform.IsChildOf(scope);
 
     private static bool IsLight(Color c) => c.r > 0.85f && c.g > 0.85f && c.b > 0.85f;
 

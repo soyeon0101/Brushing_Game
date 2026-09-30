@@ -132,3 +132,40 @@ MonoBehaviour:
     requestLine: "\uBC18\uC9DD\uBC18\uC9DD \uBE5B\uB098\uB358 \uC774\uAC00 \uBE5B\uC744
       \uC783\uC5C8\uC5B4\u2026 \uB3C4\uC640\uC918!"
     thanksLine: "\uBC1D\uAC8C \uBE5B\uB098\uC694, \uBC14\uB974\uAC8C \uB2E6\uC544\uC694!"
+  badges:
+  - id: streak7
+    displayName: "\uB9E4\uC77C\uB9E4\uC77C \uBCC4"
+    description: "7\uC77C \uB3D9\uC548\n\uB9E4\uC77C \uC591\uCE58\uD588\uC5B4!"
+    kind: 0
+    target: 7
+    icon: {fileID: 21300000, guid: 08f95bddd3729234abce4c31e21c14da, type: 3}
+  - id: streak15
+    displayName: "\uB9E4\uC77C\uB9E4\uC77C \uB2EC"
+    description: "15\uC77C \uB3D9\uC548\n\uB9E4\uC77C \uC591\uCE58\uD588\uC5B4!"
+    kind: 0
+    target: 15
+    icon: {fileID: 21300000, guid: a4f3ddc81f748314a82d3da600c6040d, type: 3}
+  - id: streak30
+    displayName: "\uB9E4\uC77C\uB9E4\uC77C \uD574"
+    description: "30\uC77C \uB3D9\uC548\n\uB9E4\uC77C \uC591\uCE58\uD588\uC5B4!"
+    kind: 0
+    target: 30
+    icon: {fileID: 21300000, guid: eaf056daf9016dd488b753b4653668df, type: 3}
+  - id: board1
+    displayName: "\uAF49 \uCC2C \uB3C4\uC7A5\uD310"
+    description: "\uB3C4\uC7A5\uD310 \uD55C \uC8FC\uB97C\n\uAF49 \uCC44\uC6E0\uC5B4!"
+    kind: 1
+    target: 1
+    icon: {fileID: 21300000, guid: 1649840d443914b499d073d1e1cc0b28, type: 3}
+  - id: board2
+    displayName: "\uAF49 \uCC2C \uB3C4\uC7A5\uD310 2\uC8FC"
+    description: "\uB3C4\uC7A5\uD310\uC744 2\uC8FC\n\uAF49 \uCC44\uC6E0\uC5B4!"
+    kind: 1
+    target: 2
+    icon: {fileID: 21300000, guid: e9d9112181693344c97c8db0c55634d0, type: 3}
+  - id: board4
+    displayName: "\uAF49 \uCC2C \uB3C4\uC7A5\uD310 4\uC8FC"
+    description: "\uB3C4\uC7A5\uD310\uC744 4\uC8FC\n\uAF49 \uCC44\uC6E0\uC5B4!"
+    kind: 1
+    target: 4
+    icon: {fileID: 21300000, guid: 0958576e10852be4ba6ba94490523438, type: 3}

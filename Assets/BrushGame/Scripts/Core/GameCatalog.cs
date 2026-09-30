@@ -22,7 +22,7 @@ namespace BrushGame
   {
     public string id;
     public string displayName;
-    [Tooltip("오늘의 환자 카드와 치료 전 모습")]
+    [Tooltip("로비 환자 카드와 치료 전 모습")]
     public Sprite before;
     [Tooltip("치료 완료 후 모습")]
     public Sprite after;
@@ -40,6 +40,29 @@ namespace BrushGame
     [TextArea] public string thanksLine;
   }
 
+  public enum BadgeKind
+  {
+    /// <summary>하루도 빠짐없이 양치한 날 수 (하루에 도장 1개 이상)</summary>
+    StreakDays,
+    /// <summary>아침·점심·저녁 21칸을 모두 채운 주 수 (누적)</summary>
+    FullWeeks,
+  }
+
+  /// <summary>반짝 배지 하나. 조건을 처음 채우면 받고, 한 번 받으면 사라지지 않는다</summary>
+  [Serializable]
+  public class BadgeInfo
+  {
+    public string id;
+    public string displayName;
+    [TextArea] public string description;
+    public BadgeKind kind;
+    [Min(1)] public int target = 1;
+    [Tooltip("배지 그림. 비우면 임시 원에 목표(7일, 1주 등)를 적어 보여준다")]
+    public Sprite icon;
+
+    public string TargetLabel => kind == BadgeKind.StreakDays ? $"{target}일" : $"{target}주";
+  }
+
   /// <summary>
   ///   캐릭터·환자처럼 늘어날 수 있는 콘텐츠 목록. 코드 수정 없이 여기에 항목을 추가하면 된다.
   /// </summary>
@@ -49,10 +72,31 @@ namespace BrushGame
     public int[] ages = { 4, 5, 6, 7 };
     public PlayerCharacter[] characters;
     public PatientInfo[] patients;
+    [Tooltip("배지함에 보이는 순서. 매일 양치 3개가 윗줄, 도장판 3개가 아랫줄")]
+    public BadgeInfo[] badges =
+    {
+      new BadgeInfo { id = "streak7", displayName = "매일매일 별", description = "7일 동안\n매일 양치했어!", kind = BadgeKind.StreakDays, target = 7 },
+      new BadgeInfo { id = "streak15", displayName = "매일매일 달", description = "15일 동안\n매일 양치했어!", kind = BadgeKind.StreakDays, target = 15 },
+      new BadgeInfo { id = "streak30", displayName = "매일매일 해", description = "30일 동안\n매일 양치했어!", kind = BadgeKind.StreakDays, target = 30 },
+      new BadgeInfo { id = "board1", displayName = "꽉 찬 도장판", description = "도장판 한 주를\n꽉 채웠어!", kind = BadgeKind.FullWeeks, target = 1 },
+      new BadgeInfo { id = "board2", displayName = "꽉 찬 도장판 2주", description = "도장판을 2주\n꽉 채웠어!", kind = BadgeKind.FullWeeks, target = 2 },
+      new BadgeInfo { id = "board4", displayName = "꽉 찬 도장판 4주", description = "도장판을 4주\n꽉 채웠어!", kind = BadgeKind.FullWeeks, target = 4 },
+    };
 
     public PlayerCharacter FindCharacter(string id) => Array.Find(characters, c => c.id == id);
 
-    /// <summary>치료할 때마다 다음 환자가 온다</summary>
-    public PatientInfo PatientForVisit(int visitCount) => patients[visitCount % patients.Length];
+    public PatientInfo FindPatient(string id) => Array.Find(patients, p => p.id == id);
+
+    /// <summary>
+    ///   끼니(아침/점심/저녁)마다 환자가 한 명 온다.
+    ///   이번 끼니 도장을 이미 받았으면 그때 치료한 환자가 다시 오고 (연습), 아니면 다음 차례 환자가 온다.
+    ///   차례는 받은 도장 수로 정하므로 끼니를 건너뛰어도 환자를 건너뛰지 않는다.
+    /// </summary>
+    public PatientInfo PatientFor(SaveData data, DateTime time)
+    {
+      var sticker = data.FindSticker(SaveData.DateKey(time), SaveData.SlotAt(time));
+      var done = sticker != null ? FindPatient(sticker.patientId) : null;
+      return done ?? patients[data.stickers.Count % patients.Length];
+    }
   }
 }

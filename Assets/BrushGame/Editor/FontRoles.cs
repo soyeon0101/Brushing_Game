@@ -30,7 +30,8 @@ namespace BrushGame.EditorTools
       Debug.Log($"[BrushGame] 글자 {count}개에 역할별 폰트를 적용했습니다. 씬을 저장하세요.");
     }
 
-    public static int ApplyAll()
+    /// <param name="scope">이 오브젝트 아래만 적용한다 (새로 만든 화면만 꾸밀 때). null이면 열린 씬 전체</param>
+    public static int ApplyAll(Transform scope = null)
     {
       var display = Load("CookieRun Black");
       var heading = Load("CookieRun Bold");
@@ -41,6 +42,10 @@ namespace BrushGame.EditorTools
       var count = 0;
       foreach (var text in Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
       {
+        if (scope != null && !text.transform.IsChildOf(scope))
+        {
+          continue;
+        }
         Font font;
         if (text.fontSize >= 90)
         {

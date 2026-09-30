@@ -26,6 +26,10 @@ namespace BrushGame.EditorTools
     private const string PatientArtDir = "Assets/BrushGame/Art/Patients";
     private const string BattleArtDir = "Assets/BrushGame/Art/Battle";
     private const string UiArtDir = "Assets/BrushGame/Art/UI";
+    private const string HudArtDir = "Assets/BrushGame/Art/Hud";
+    private const string IconArtDir = "Assets/BrushGame/Art/Icons";
+    private const string BadgeArtDir = "Assets/BrushGame/Art/Badges";
+    private const string LoadingArtDir = "Assets/BrushGame/Art/Loading";
     private const string FontDir = "Assets/BrushGame/Fonts";
     private const string SoundDir = "Assets/BrushGame/Sound";
     private const string BootstrapPrefabPath = "Assets/MediaPipeUnity/Samples/Resources/Bootstrap.prefab";
@@ -124,7 +128,9 @@ namespace BrushGame.EditorTools
       var brushing = BuildBrushing(screens, hub, (RectTransform)feed.transform);
       var complete = BuildComplete(screens);
       var stickers = BuildStickers(screens);
+      var badges = BuildBadges(screens);
       var settings = BuildSettings(root);
+      BuildQuitConfirm(root);
 
       new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
@@ -143,6 +149,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_brushing", brushing);
       SetRef(flow, "_complete", complete);
       SetRef(flow, "_stickers", stickers);
+      SetRef(flow, "_badges", badges);
       SetRef(flow, "_settings", settings);
       BuildSound();
 
@@ -194,8 +201,8 @@ namespace BrushGame.EditorTools
       screen.transform.SetSiblingIndex(index);
       screen.gameObject.SetActive(active);
       SetRef(flow, "_brushing", screen);
-      FontRoles.ApplyAll();
-      UiSkin.ApplyAll();
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
 
       var scene = flow.gameObject.scene;
       EditorSceneManager.MarkSceneDirty(scene);
@@ -226,8 +233,8 @@ namespace BrushGame.EditorTools
       screen.transform.SetSiblingIndex(index);
       screen.gameObject.SetActive(active);
       SetRef(flow, "_title", screen);
-      FontRoles.ApplyAll();
-      UiSkin.ApplyAll();
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
 
       var scene = flow.gameObject.scene;
       EditorSceneManager.MarkSceneDirty(scene);
@@ -262,8 +269,8 @@ namespace BrushGame.EditorTools
       screen.transform.SetSiblingIndex(index);
       screen.gameObject.SetActive(active);
       SetRef(flow, flowField, screen);
-      FontRoles.ApplyAll();
-      UiSkin.ApplyAll();
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
 
       var scene = flow.gameObject.scene;
       EditorSceneManager.MarkSceneDirty(scene);
@@ -359,6 +366,10 @@ namespace BrushGame.EditorTools
         linked += Link(ref p.face, PatientArtDir, $"{Capitalize(p.id)}_Face");
         linked += Link(ref p.mouthTop, PatientArtDir, $"{Capitalize(p.id)}_MouthTop");
         linked += Link(ref p.mouthBottom, PatientArtDir, $"{Capitalize(p.id)}_MouthBottom");
+      }
+      foreach (var b in catalog.badges)
+      {
+        linked += Link(ref b.icon, BadgeArtDir, $"Badge_{Capitalize(b.id)}");
       }
       EditorUtility.SetDirty(catalog);
       AssetDatabase.SaveAssets();
@@ -663,20 +674,22 @@ namespace BrushGame.EditorTools
       }
 
       var card = Img("PatientCard", c, new Vector2(0f, 90f), new Vector2(900f, 640f), Color.white, _rounded);
-      Txt("Header", card.transform, new Vector2(0f, 250f), new Vector2(800f, 70f), "오늘의 환자", 44, Primary, bold: true);
+      var header = Txt("Header", card.transform, new Vector2(0f, 250f), new Vector2(800f, 70f), "아침에 온 친구", 44, Primary, bold: true);
       var portrait = Img("PatientArt", card.transform, new Vector2(0f, 40f), new Vector2(340f, 340f), Peach, _circle);
       var patientName = Txt("PatientName", card.transform, new Vector2(0f, -170f), new Vector2(800f, 80f), "", 54, Dark, bold: true);
       var patientLine = Txt("PatientLine", card.transform, new Vector2(0f, -250f), new Vector2(820f, 80f), "", 34, Grey);
 
       var treat = Btn("TreatButton", c, new Vector2(0f, -380f), new Vector2(800f, 170f), "치료 시작", Green, Color.white, 64);
-      var bookButton = Btn("BookButton", c, new Vector2(-330f, -680f), new Vector2(300f, 160f), "환자 도감", Lavender, Dark, 40);
-      var stickerButton = Btn("StickerButton", c, new Vector2(0f, -680f), new Vector2(300f, 160f), "스티커판", Lavender, Dark, 40);
-      var settingsButton = Btn("SettingsButton", c, new Vector2(330f, -680f), new Vector2(300f, 160f), "보호자 설정", Lavender, Dark, 40);
+      var bookButton = NavButton("BookButton", c, -378f, "환자 도감", "Icon_Book");
+      var stickerButton = NavButton("StickerButton", c, -126f, "스티커판", "Icon_Stickers");
+      var badgeButton = NavButton("BadgeButton", c, 126f, "반짝 배지", "Icon_Badge");
+      var settingsButton = NavButton("SettingsButton", c, 378f, "보호자 설정", "Icon_Settings");
 
       var screen = root.gameObject.AddComponent<LobbyScreen>();
       SetRef(screen, "_avatar", avatar);
       SetRef(screen, "_nickname", nickname);
       SetArray(screen, "_todayStickers", todayStickers);
+      SetRef(screen, "_patientHeader", header);
       SetRef(screen, "_patientPortrait", portrait);
       SetRef(screen, "_patientName", patientName);
       SetRef(screen, "_patientLine", patientLine);
@@ -684,7 +697,69 @@ namespace BrushGame.EditorTools
       SetRef(screen, "_bookButton", bookButton);
       SetRef(screen, "_stickerButton", stickerButton);
       SetRef(screen, "_settingsButton", settingsButton);
+      SetRef(screen, "_badgeButton", badgeButton);
+      BuildPracticeConfirm(screen);
       return screen;
+    }
+
+    /// <summary>뒤로가기 종료 확인 창. 모든 화면과 보호자 설정보다 위에 둔다</summary>
+    internal static QuitConfirmPanel BuildQuitConfirm(Transform canvasRoot)
+    {
+      LoadCommonAssets();
+      var root = Stretch("QuitConfirm", canvasRoot);
+      var panel = Stretch("Panel", root);
+      panel.gameObject.AddComponent<Image>().color = Dim;
+      var box = Img("Box", panel, Vector2.zero, new Vector2(820f, 520f), Color.white, _rounded);
+      Txt("Message", box.transform, new Vector2(0f, 100f), new Vector2(760f, 200f), "게임을 끝낼까요?", 52, Dark, bold: true);
+      var quit = Btn("QuitButton", box.transform, new Vector2(-190f, -140f), new Vector2(330f, 130f), "끝내기", Lavender, Dark, 48);
+      var stay = Btn("StayButton", box.transform, new Vector2(190f, -140f), new Vector2(330f, 130f), "계속하기", Green, Color.white, 48);
+      panel.gameObject.SetActive(false);
+
+      var comp = root.gameObject.AddComponent<QuitConfirmPanel>();
+      SetRef(comp, "_panel", panel.gameObject);
+      SetRef(comp, "_quitButton", quit);
+      SetRef(comp, "_stayButton", stay);
+      return comp;
+    }
+
+    /// <summary>로비 아래 메뉴 버튼: 위에 그림, 아래에 이름 (그림이 없으면 이름만 가운데)</summary>
+    internal static Button NavButton(string name, Transform parent, float x, string label, string iconName)
+    {
+      LoadCommonAssets();
+      var size = new Vector2(235f, 230f);
+      var button = Btn(name, parent, new Vector2(x, -700f), size, label, Lavender, Dark, 34);
+      var icon = LoadArt(IconArtDir, iconName);
+      if (icon != null)
+      {
+        ArtSlot.Apply(Img("Icon", button.transform, new Vector2(0f, 28f), new Vector2(140f, 140f), Color.white, null), icon);
+        var text = button.GetComponentInChildren<Text>(true).rectTransform;
+        text.anchoredPosition = new Vector2(0f, -78f);
+        text.sizeDelta = new Vector2(235f, 60f);
+      }
+      return button;
+    }
+
+    /// <summary>이미 도장을 받은 끼니에 치료 시작을 누르면 뜨는 확인 창. 문구는 LobbyScreen이 채운다</summary>
+    internal static void BuildPracticeConfirm(LobbyScreen screen)
+    {
+      var old = screen.transform.Find("PracticeConfirm");
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old.gameObject);
+      }
+      LoadCommonAssets();
+      var confirm = Stretch("PracticeConfirm", screen.transform);
+      confirm.gameObject.AddComponent<Image>().color = Dim;
+      var box = Img("Box", confirm, Vector2.zero, new Vector2(820f, 520f), Color.white, _rounded);
+      var message = Txt("Message", box.transform, new Vector2(0f, 100f), new Vector2(760f, 200f), "", 46, Dark, bold: true);
+      var cancel = Btn("CancelButton", box.transform, new Vector2(-190f, -140f), new Vector2(330f, 130f), "다음에 할래", Lavender, Dark, 44);
+      var practice = Btn("PracticeButton", box.transform, new Vector2(190f, -140f), new Vector2(330f, 130f), "연습할래", Green, Color.white, 48);
+      confirm.gameObject.SetActive(false);
+
+      SetRef(screen, "_practicePanel", confirm.gameObject);
+      SetRef(screen, "_practiceMessage", message);
+      SetRef(screen, "_practiceButton", practice);
+      SetRef(screen, "_practiceCancelButton", cancel);
     }
 
     private static PatientBookScreen BuildPatientBook(Transform parent)
@@ -722,7 +797,7 @@ namespace BrushGame.EditorTools
     private static PatientIntroScreen BuildPatientIntro(Transform parent)
     {
       var (root, c) = NewScreen("PatientIntro", parent, Cream);
-      Txt("Title", c, new Vector2(0f, 760f), new Vector2(1000f, 100f), "오늘의 환자", 60, Dark, bold: true);
+      var title = Txt("Title", c, new Vector2(0f, 760f), new Vector2(1000f, 100f), "아침에 온 친구", 60, Dark, bold: true);
       var portrait = Img("PatientArt", c, new Vector2(0f, 220f), new Vector2(620f, 620f), Peach, _circle);
       var patientName = Txt("PatientName", c, new Vector2(0f, -160f), new Vector2(900f, 90f), "", 64, Primary, bold: true);
       var bubble = Img("Bubble", c, new Vector2(0f, -330f), new Vector2(900f, 200f), Peach, _rounded);
@@ -731,6 +806,7 @@ namespace BrushGame.EditorTools
       var back = BackButton(c);
 
       var screen = root.gameObject.AddComponent<PatientIntroScreen>();
+      SetRef(screen, "_title", title);
       SetRef(screen, "_portrait", portrait);
       SetRef(screen, "_name", patientName);
       SetRef(screen, "_line", line);
@@ -766,9 +842,32 @@ namespace BrushGame.EditorTools
 
     private static LoadingScreen BuildLoading(Transform parent)
     {
-      var (root, c) = NewScreen("Loading", parent, new Color(0.05f, 0.2f, 0.16f));
-      Txt("Message", c, new Vector2(0f, 80f), new Vector2(1000f, 100f), "우주 치과 입장 중...", 56, Color.white, bold: true);
-      var bar = Img("Bar", c, new Vector2(0f, -40f), new Vector2(700f, 44f), new Color(1f, 1f, 1f, 0.25f), _rounded, ppu: 3f);
+      var (root, c) = NewScreen("Loading", parent, new Color(0.16f, 0.12f, 0.35f));
+      // 배경 → 흐르는 별 → 치과 → 우주선 → 글자 순서로 그린다
+      var bg = Img("SpaceBg", root, Vector2.zero, Vector2.zero, Color.white, null);
+      Fit(bg.rectTransform);
+      bg.transform.SetSiblingIndex(0);
+      var bgArt = LoadArt(LoadingArtDir, "Loading_BG");
+      if (bgArt != null)
+      {
+        bg.sprite = bgArt;
+        var fitter = bg.gameObject.AddComponent<AspectRatioFitter>();
+        fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+        fitter.aspectRatio = bgArt.rect.width / bgArt.rect.height;
+      }
+      else
+      {
+        bg.color = new Color(0.16f, 0.12f, 0.35f);
+      }
+      var stars = Stretch("StarField", root);
+      stars.SetSiblingIndex(1);
+      var clinic = Img("Clinic", c, new Vector2(0f, 430f), new Vector2(560f, 560f), Mint, _circle);
+      ArtSlot.Apply(clinic, LoadArt(LoadingArtDir, "Loading_Clinic"));
+      var rocket = Img("Rocket", c, new Vector2(0f, -400f), new Vector2(320f, 320f), Peach, _circle);
+      ArtSlot.Apply(rocket, LoadArt(LoadingArtDir, "Loading_Rocket"));
+      var message = Txt("Message", c, new Vector2(0f, -640f), new Vector2(1000f, 100f), "우주 치과로 날아가는 중...", 56, Color.white, bold: true);
+      Outlined(message, new Color(0.29f, 0.23f, 0.55f), 4f);
+      var bar = Img("Bar", c, new Vector2(0f, -740f), new Vector2(700f, 44f), new Color(1f, 1f, 1f, 0.35f), _rounded, ppu: 3f);
       var fill = Img("Fill", bar.transform, Vector2.zero, Vector2.zero, Gold, _rounded, ppu: 3f);
       var fillRt = fill.rectTransform;
       fillRt.anchorMin = Vector2.zero;
@@ -778,6 +877,11 @@ namespace BrushGame.EditorTools
 
       var screen = root.gameObject.AddComponent<LoadingScreen>();
       SetRef(screen, "_barFill", fillRt);
+      SetRef(screen, "_message", message);
+      SetRef(screen, "_rocket", rocket.rectTransform);
+      SetRef(screen, "_clinic", clinic.rectTransform);
+      SetRef(screen, "_starField", stars);
+      SetRef(screen, "_starSprite", _circle);
       return screen;
     }
 
@@ -818,16 +922,33 @@ namespace BrushGame.EditorTools
 
       // HUD
       var pause = Btn("PauseButton", c, new Vector2(100f, -100f), new Vector2(130f, 130f), "II", Color.white, Dark, 56, TopLeft, _circle);
+      IconButton(pause, LoadArt(HudArtDir, "Hud_Pause"));
       var sound = Btn("SoundButton", c, new Vector2(-100f, -100f), new Vector2(130f, 130f), "소리\n켬", Color.white, Dark, 30, TopRight, _circle);
+      var soundOn = LoadArt(HudArtDir, "Hud_SoundOn");
+      IconButton(sound, soundOn);
       var timerPill = Img("TimerPill", c, new Vector2(0f, -90f), new Vector2(300f, 110f), Primary, _rounded, Top);
-      var timer = Txt("Timer", timerPill.transform, Vector2.zero, new Vector2(300f, 110f), "0:25", 60, Color.white, bold: true);
+      var timerIcon = LoadArt(HudArtDir, "Hud_Timer");
+      if (timerIcon != null)
+      {
+        ArtSlot.Apply(Img("TimerIcon", timerPill.transform, new Vector2(-112f, 4f), new Vector2(96f, 96f), Color.white, null), timerIcon);
+      }
+      var timer = Txt("Timer", timerPill.transform, new Vector2(timerIcon != null ? 36f : 0f, 0f), new Vector2(220f, 110f), "0:25", 60, Color.white, bold: true);
       var dotsRoot = Node("ZoneDots", c, new Vector2(0f, -185f), new Vector2(300f, 40f), Top);
       var dots = new Object[4];
       var dotFills = new Object[4];
+      var starArt = LoadArt(HudArtDir, "Hud_Star");
+      var dotSize = starArt != null ? 54f : 36f;
       for (var i = 0; i < 4; i++)
       {
-        var dot = Img($"Dot{i}", dotsRoot, new Vector2(-90f + 60f * i, 0f), new Vector2(36f, 36f), new Color(1f, 1f, 1f, 0.7f), _circle);
-        var fill = Img("Fill", dot.transform, Vector2.zero, new Vector2(36f, 36f), Gold, _circle);
+        var dot = Img($"Dot{i}", dotsRoot, new Vector2(-90f + 60f * i, 0f), new Vector2(dotSize, dotSize), new Color(1f, 1f, 1f, 0.7f), _circle);
+        var fill = Img("Fill", dot.transform, Vector2.zero, new Vector2(dotSize, dotSize), Gold, _circle);
+        if (starArt != null)
+        {
+          // 아직 안 닦은 구역은 흐린 별, 다 닦은 구역은 금색 별
+          ArtSlot.Apply(dot, starArt);
+          dot.color = new Color(0.2f, 0.15f, 0.35f, 0.45f);
+          ArtSlot.Apply(fill, starArt);
+        }
         fill.gameObject.SetActive(false);
         dots[i] = dot.rectTransform;
         dotFills[i] = fill.gameObject;
@@ -884,7 +1005,13 @@ namespace BrushGame.EditorTools
       SetArray(screen, "_zoneDotFills", dotFills);
       SetRef(screen, "_pauseButton", pause);
       SetRef(screen, "_soundButton", sound);
-      SetRef(screen, "_soundLabel", sound.GetComponentInChildren<Text>());
+      SetRef(screen, "_soundLabel", sound.GetComponentInChildren<Text>(true));
+      if (soundOn != null)
+      {
+        SetRef(screen, "_soundIcon", sound.targetGraphic);
+        SetRef(screen, "_soundOnSprite", soundOn);
+        SetRef(screen, "_soundOffSprite", LoadArt(HudArtDir, "Hud_SoundOff"));
+      }
       SetRef(screen, "_guidePortrait", guidePortrait);
       SetRef(screen, "_guideText", guideText);
       SetRef(screen, "_handLostOverlay", lost.gameObject);
@@ -1019,27 +1146,55 @@ namespace BrushGame.EditorTools
       var root = Node(name, parent, pos, new Vector2(480f, 240f), anchor);
       var highlight = Img("Highlight", root, Vector2.zero, new Vector2(510f, 270f), new Color(1f, 0.92f, 0.35f, 0.85f), _rounded);
       float[] xs = { -160f, 0f, 160f };
+      var toothArt = LoadArt(HudArtDir, "Hud_Tooth");
       foreach (var x in xs)
       {
-        Img("Tooth", root, new Vector2(x, 0f), new Vector2(140f, 210f), Color.white, _rounded);
+        var tooth = Img("Tooth", root, new Vector2(x, 0f), new Vector2(140f, 210f), Color.white, _rounded);
+        if (toothArt != null)
+        {
+          ArtSlot.Apply(tooth, toothArt);
+          tooth.rectTransform.sizeDelta = new Vector2(160f, 220f);
+          // 그림은 뿌리가 아래라서, 윗니는 뒤집어 뿌리가 잇몸(위)으로 가게 한다
+          tooth.rectTransform.localScale = new Vector3(1f, upper ? -1f : 1f, 1f);
+        }
       }
       Color[] dirtColors = { new Color(1f, 0.85f, 0.35f), new Color(0.7f, 0.88f, 0.4f), new Color(0.8f, 0.62f, 1f) };
+      string[] dirtArt = { "Hud_Plaque", "Hud_Food", "Hud_Germ" };
       var gumSide = upper ? 1f : -1f;
       var dirt = new Object[xs.Length];
       var foam = new Object[xs.Length];
       for (var i = 0; i < xs.Length; i++)
       {
-        dirt[i] = Img("Dirt", root, new Vector2(xs[i] + (i - 1) * 8f, gumSide * 50f), new Vector2(96f, 64f), dirtColors[i], _circle);
+        var d = Img("Dirt", root, new Vector2(xs[i] + (i - 1) * 8f, gumSide * 50f), new Vector2(96f, 64f), dirtColors[i], _circle);
+        var art = LoadArt(HudArtDir, dirtArt[i]);
+        if (art != null)
+        {
+          ArtSlot.Apply(d, art);
+          d.rectTransform.sizeDelta = new Vector2(104f, 104f);
+        }
+        dirt[i] = d;
       }
+      var foamArt = LoadArt(HudArtDir, "Hud_Foam");
       for (var i = 0; i < xs.Length; i++)
       {
-        foam[i] = Img("Foam", root, new Vector2(xs[i], -gumSide * 10f), new Vector2(140f, 140f), new Color(1f, 1f, 1f, 0f), _circle);
+        var f = Img("Foam", root, new Vector2(xs[i], -gumSide * 10f), new Vector2(140f, 140f), new Color(1f, 1f, 1f, 0f), _circle);
+        ArtSlot.Apply(f, foamArt);
+        foam[i] = f;
       }
+      var sparkleArt = LoadArt(UiArtDir, "FX_Sparkle");
       var sparkles = new Object[]
       {
         Img("Sparkle", root, new Vector2(-90f, 60f), new Vector2(64f, 64f), new Color(1f, 0.95f, 0.5f, 0f), _circle),
         Img("Sparkle", root, new Vector2(110f, -50f), new Vector2(64f, 64f), new Color(1f, 0.95f, 0.5f, 0f), _circle),
       };
+      foreach (Image s in sparkles)
+      {
+        if (sparkleArt != null)
+        {
+          ArtSlot.Apply(s, sparkleArt);
+          s.rectTransform.sizeDelta = new Vector2(96f, 96f);
+        }
+      }
 
       var view = root.gameObject.AddComponent<BrushZoneView>();
       SetRef(view, "_highlight", highlight.gameObject);
@@ -1124,6 +1279,59 @@ namespace BrushGame.EditorTools
       SetArray(screen, "_stickers", stickers);
       SetRef(screen, "_backButton", back);
       SetRef(screen, "_stampFx", fx.rectTransform);
+      BuildWeekArrows(screen);
+      return screen;
+    }
+
+    /// <summary>스티커판의 지난주/다음주 화살표 (이번 주 도장 수 글자 양옆)</summary>
+    internal static void BuildWeekArrows(StickerScreen screen)
+    {
+      LoadCommonAssets();
+      var c = screen.transform.Find("Content");
+      var prev = Btn("PrevWeekButton", c, new Vector2(-430f, 700f), new Vector2(110f, 110f), "<", Color.white, Dark, 56, sprite: _circle);
+      var next = Btn("NextWeekButton", c, new Vector2(430f, 700f), new Vector2(110f, 110f), ">", Color.white, Dark, 56, sprite: _circle);
+      SetRef(screen, "_prevWeekButton", prev);
+      SetRef(screen, "_nextWeekButton", next);
+    }
+
+    /// <summary>반짝 배지함: 위 줄은 매일 양치(연속 일수), 아래 줄은 꽉 찬 도장판. 칸은 GameCatalog.badges 순서</summary>
+    internal static BadgeScreen BuildBadges(Transform parent)
+    {
+      LoadCommonAssets();
+      var (root, c) = NewScreen("Badges", parent, Cream);
+      var title = Txt("Title", c, new Vector2(0f, 760f), new Vector2(1000f, 100f), "반짝 배지", 64, Dark, bold: true);
+      var summary = Txt("Subtitle", c, new Vector2(0f, 680f), new Vector2(1000f, 70f), "", 38, Grey);
+      Txt("StreakLabel", c, new Vector2(0f, 560f), new Vector2(1000f, 70f), "매일매일 양치하기", 44, Dark, bold: true);
+      Txt("BoardLabel", c, new Vector2(0f, 20f), new Vector2(1000f, 70f), "도장판 꽉 채우기", 44, Dark, bold: true);
+
+      var screen = root.gameObject.AddComponent<BadgeScreen>();
+      var so = new SerializedObject(screen);
+      var cards = so.FindProperty("_cards");
+      cards.arraySize = 6;
+      for (var i = 0; i < 6; i++)
+      {
+        var pos = new Vector2(-330f + 330f * (i % 3), i < 3 ? 300f : -240f);
+        var card = Img($"Badge{i}", c, pos, new Vector2(310f, 440f), Color.white, _rounded);
+        var icon = Img("Icon", card.transform, new Vector2(0f, 90f), new Vector2(200f, 200f), Gold, _circle);
+        var iconLabel = Txt("IconLabel", icon.transform, Vector2.zero, new Vector2(200f, 120f), "", 60, Dark, bold: true);
+        var badgeName = Txt("Name", card.transform, new Vector2(0f, -60f), new Vector2(300f, 60f), "", 32, Dark, bold: true);
+        var info = Txt("Info", card.transform, new Vector2(0f, -150f), new Vector2(300f, 90f), "", 28, Grey);
+        var newTag = Img("NewTag", card.transform, new Vector2(95f, 200f), new Vector2(150f, 60f), new Color(1f, 0.45f, 0.65f), _rounded);
+        Txt("Label", newTag.transform, Vector2.zero, new Vector2(150f, 60f), "새 배지!", 28, Color.white, bold: true);
+        newTag.gameObject.SetActive(false);
+
+        var e = cards.GetArrayElementAtIndex(i);
+        e.FindPropertyRelative("root").objectReferenceValue = card.gameObject;
+        e.FindPropertyRelative("icon").objectReferenceValue = icon;
+        e.FindPropertyRelative("iconLabel").objectReferenceValue = iconLabel;
+        e.FindPropertyRelative("name").objectReferenceValue = badgeName;
+        e.FindPropertyRelative("info").objectReferenceValue = info;
+        e.FindPropertyRelative("newTag").objectReferenceValue = newTag.gameObject;
+      }
+      so.FindProperty("_title").objectReferenceValue = title;
+      so.FindProperty("_summary").objectReferenceValue = summary;
+      so.FindProperty("_backButton").objectReferenceValue = BackButton(c);
+      so.ApplyModifiedPropertiesWithoutUndo();
       return screen;
     }
 
@@ -1212,6 +1420,20 @@ namespace BrushGame.EditorTools
       Fit(rt);
       return rt;
     }
+
+    /// <summary>버튼 전체를 그림으로 바꾸고 글자는 숨긴다. 그림이 없으면 그대로 둔다</summary>
+    private static void IconButton(Button button, Sprite art)
+    {
+      if (art == null)
+      {
+        return;
+      }
+      ArtSlot.Apply((Image)button.targetGraphic, art);
+      button.GetComponentInChildren<Text>(true).gameObject.SetActive(false);
+    }
+
+    /// <summary>그림이 아직 없으면 null (자리는 임시 도형으로 남는다)</summary>
+    private static Sprite LoadArt(string dir, string name) => AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/{name}.png");
 
     private static void Fit(RectTransform rt)
     {
