@@ -11,6 +11,10 @@ namespace BrushGame
 
     [SerializeField] private Button _soundButton;
     [SerializeField] private Text _soundLabel;
+    [SerializeField] private Button _musicButton;
+    [SerializeField] private Text _musicLabel;
+    [SerializeField] private Button _effectButton;
+    [SerializeField] private Text _effectLabel;
     [SerializeField] private Button _voiceButton;
     [SerializeField] private Text _voiceLabel;
     [Tooltip("20초, 25초, 30초 순서")]
@@ -47,6 +51,18 @@ namespace BrushGame
         Settings.ApplyAudio();
         SaveAndRefresh();
       });
+      _musicButton.onClick.AddListener(() =>
+      {
+        Settings.music = !Settings.music;
+        Settings.ApplyAudio();
+        SaveAndRefresh();
+      });
+      _effectButton.onClick.AddListener(() =>
+      {
+        Settings.effects = !Settings.effects;
+        Settings.ApplyAudio();
+        SaveAndRefresh();
+      });
       _voiceButton.onClick.AddListener(() =>
       {
         Settings.voiceGuide = !Settings.voiceGuide;
@@ -80,6 +96,8 @@ namespace BrushGame
     private void Refresh()
     {
       _soundLabel.text = Settings.sound ? "켜짐" : "꺼짐";
+      _musicLabel.text = Settings.music ? "켜짐" : "꺼짐";
+      _effectLabel.text = Settings.effects ? "켜짐" : "꺼짐";
       _voiceLabel.text = Settings.voiceGuide ? "켜짐" : "꺼짐";
       for (var i = 0; i < _zoneSecondCards.Length; i++)
       {

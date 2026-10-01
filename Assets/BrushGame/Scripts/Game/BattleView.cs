@@ -20,6 +20,8 @@ namespace BrushGame
       public Sprite[] finish;   // 친구: 승리 / 충치균: 쓰러짐 (한 번)
       [Tooltip("반복 동작(대기, 멈춤)의 초당 프레임 수. 영상에서 뽑은 프레임은 8 정도")]
       [Min(0.5f)] public float loopFps = 4f;
+
+      public bool IsEmpty => (idle == null || idle.Length == 0) && (action == null || action.Length == 0);
     }
 
     [SerializeField] private CanvasGroup _group;
@@ -65,6 +67,27 @@ namespace BrushGame
     private float _lastSwingTime = float.NegativeInfinity;
     private bool _idle;
     private float _hp = 1f, _shownHp = 1f;
+    private Frames _heroOverride;
+
+    private Frames HeroFrames => _heroOverride ?? _heroFrames;
+
+    /// <summary>캐릭터 전용 그림(예: 왕자의 공룡)이 있으면 3D 기본 친구 대신 그 2D 그림을 쓴다</summary>
+    private bool UseHeroPuppet => _heroPuppet != null && _heroOverride == null;
+
+    /// <summary>고른 캐릭터에 따라 친구 그림을 바꾼다. 비어 있으면 씬에 들어 있는 기본 친구 (3D가 있으면 3D)</summary>
+    public void SetHeroFrames(Frames frames)
+    {
+      _heroOverride = frames == null || frames.IsEmpty ? null : frames;
+      if (_heroImage == null)
+      {
+        return;
+      }
+      _heroImage.enabled = !UseHeroPuppet;
+      if (HeroFrames.idle != null && HeroFrames.idle.Length > 0)
+      {
+        _heroImage.sprite = HeroFrames.idle[0];
+      }
+    }
 
     private void Awake()
     {
@@ -72,7 +95,7 @@ namespace BrushGame
       _villainHome = _villain.anchoredPosition;
       _hitHome = _hitEffect.anchoredPosition;
       // 3D 캐릭터가 있으면 2D 그림은 숨긴다 (그림 자리 안의 RawImage가 3D를 보여준다)
-      if (_heroPuppet != null)
+      if (UseHeroPuppet)
       {
         _heroImage.enabled = false;
       }
@@ -119,7 +142,7 @@ namespace BrushGame
     {
       if (_heroPuppet != null)
       {
-        _heroPuppet.SetVisible(visible);
+        _heroPuppet.SetVisible(visible && UseHeroPuppet);
       }
       if (_villainPuppet != null)
       {
@@ -279,13 +302,13 @@ namespace BrushGame
 
       // 친구의 마법 동작은 칫솔질 진행(swing)으로, 충치균의 움찔은 반짝이 이후 시간(hit)으로
       var finish = _defeatT >= 0f ? _defeatT / _defeatSec : -1f;
-      if (_heroPuppet != null)
+      if (UseHeroPuppet)
       {
         _heroPuppet.Pose(_time, swinging && !_idle, swing, _burstAt, _idle, finish);
       }
       else
       {
-        ApplyFrames(_heroImage, _heroFrames, swinging && !_idle, swing, loopAction: true);
+        ApplyFrames(_heroImage, HeroFrames, swinging && !_idle, swing, loopAction: true);
       }
       if (_villainPuppet != null)
       {

@@ -137,9 +137,10 @@ namespace BrushGame
     private string ZoneLine => $"{ZoneNames[_zone]}를 닦아줘!";
     private bool IsUpper(int zone) => zone < 2;
 
-    public void Setup(PatientInfo patient, int zoneSeconds)
+    public void Setup(PatientInfo patient, int zoneSeconds, PlayerCharacter character)
     {
       ArtSlot.Apply(_guidePortrait, patient.Portrait);
+      _battle.SetHeroFrames(character?.battle);
       _zoneSeconds = Mathf.Clamp(zoneSeconds, GuardianSettings.MinZoneSeconds, GuardianSettings.MaxZoneSeconds);
 
       // 환자가 바뀌면 그림도 바뀌어야 하므로, 그림이 없는 환자는 임시 도형으로 되돌린다
@@ -369,6 +370,7 @@ namespace BrushGame
       if (_zone + 1 >= _zones.Length)
       {
         ShowGuide("다 닦았어! 정말 고마워!");
+        SoundManager.PlayGargle();
       }
     }
 
@@ -464,6 +466,7 @@ namespace BrushGame
     {
       _paused = paused;
       _pauseOverlay.SetActive(paused);
+      SoundManager.SetMusicPaused(paused);
     }
 
     private void ToggleSound()

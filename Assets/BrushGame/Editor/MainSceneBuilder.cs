@@ -31,6 +31,7 @@ namespace BrushGame.EditorTools
     private const string BadgeArtDir = "Assets/BrushGame/Art/Badges";
     private const string LoadingArtDir = "Assets/BrushGame/Art/Loading";
     private const string FontDir = "Assets/BrushGame/Fonts";
+    private const string SoundDir = "Assets/BrushGame/Sound";
     private const string BootstrapPrefabPath = "Assets/MediaPipeUnity/Samples/Resources/Bootstrap.prefab";
 
     // 임시 색. 그림을 넣을 때 Image 색을 흰색으로 바꿔야 그림 색이 그대로 나온다 (ArtSlot은 자동으로 함)
@@ -83,6 +84,7 @@ namespace BrushGame.EditorTools
       cam.backgroundColor = Color.black;
       camGo.transform.position = new Vector3(0f, 0f, -10f);
       camGo.AddComponent<CameraFitWidth>();
+      camGo.AddComponent<AudioListener>();
 
       var canvasGo = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
       var canvas = canvasGo.GetComponent<Canvas>();
@@ -149,6 +151,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_stickers", stickers);
       SetRef(flow, "_badges", badges);
       SetRef(flow, "_settings", settings);
+      BuildSound();
 
       FontRoles.ApplyAll();
       UiSkin.ApplyAll();
@@ -275,6 +278,19 @@ namespace BrushGame.EditorTools
       Debug.Log($"[BrushGame] {typeof(T).Name} 화면을 다시 만들고 씬을 저장했습니다.");
     }
 
+    /// <summary>이미 있는 Main 씬에 소리(SoundManager, AudioListener)를 붙인다. 이미 있으면 소리 파일 연결만 채운다</summary>
+    [MenuItem("BrushGame/Add Sound To Scene")]
+    public static void AddSoundMenu()
+    {
+      var cam = Camera.main;
+      if (cam != null && cam.GetComponent<AudioListener>() == null)
+      {
+        Undo.AddComponent<AudioListener>(cam.gameObject);
+      }
+      BuildSound();
+      EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+    }
+
     [MenuItem("BrushGame/Delete Save Data")]
     public static void DeleteSaveData()
     {
@@ -337,6 +353,10 @@ namespace BrushGame.EditorTools
       {
         linked += Link(ref c.image, CharacterArtDir, Capitalize(c.id));
         linked += Link(ref c.portrait, CharacterArtDir, $"{Capitalize(c.id)}_Bust");
+        if (BattleHeroes.TryGetValue(c.id, out var hero))
+        {
+          linked += LinkBattle(c, hero);
+        }
       }
       foreach (var p in catalog.patients)
       {
@@ -354,6 +374,42 @@ namespace BrushGame.EditorTools
       EditorUtility.SetDirty(catalog);
       AssetDatabase.SaveAssets();
       Debug.Log($"[BrushGame] 카탈로그에 그림 {linked}개 연결");
+    }
+
+    /// <summary>
+    ///   캐릭터 id → 양치 화면 친구 그림 이름. 여기 없는 캐릭터는 씬에 들어 있는 기본 친구(토끼, Hero_*)를 쓴다.
+    ///   그림: Art/Battle/{이름}/Frames/{이름}_Idle1.png, _Attack01~, _Hurt1~, _Win1~ (1024 캔버스, 발이 아래 가운데)
+    /// </summary>
+    private static readonly System.Collections.Generic.Dictionary<string, string> BattleHeroes = new()
+    {
+      ["prince"] = "Hero2",
+    };
+
+    private static int LinkBattle(PlayerCharacter character, string hero)
+    {
+      if (character.battle != null && !character.battle.IsEmpty)
+      {
+        return 0;
+      }
+      var dir = $"{BattleArtDir}/{hero}/Frames";
+      if (!AssetDatabase.IsValidFolder(dir))
+      {
+        return 0;
+      }
+      Sprite[] Load(string action) => AssetDatabase.FindAssets($"{hero}_{action} t:Sprite", new[] { dir })
+        .Select(AssetDatabase.GUIDToAssetPath)
+        .Where(p => Path.GetFileNameWithoutExtension(p).StartsWith($"{hero}_{action}"))
+        .OrderBy(p => p)
+        .Select(AssetDatabase.LoadAssetAtPath<Sprite>)
+        .ToArray();
+      character.battle = new BattleView.Frames
+      {
+        idle = Load("Idle"),
+        action = Load("Attack"),
+        stopped = Load("Hurt"),
+        finish = Load("Win"),
+      };
+      return character.battle.IsEmpty ? 0 : 1;
     }
 
     private static int Link(ref Sprite slot, string dir, string baseName)
@@ -398,6 +454,36 @@ namespace BrushGame.EditorTools
     }
 
     // ---------- 공통 ----------
+
+    /// <summary>
+    ///   소리 담당 오브젝트. 소리 파일은 Sound 폴더의 정해진 이름으로 연결하고, 이미 넣은 칸은 건드리지 않는다.
+    ///   background_Sound(기본 배경음), Game_play_Sound(양치 배경음), touch, Clear, Gargle
+    /// </summary>
+    private static SoundManager BuildSound()
+    {
+      var sound = Object.FindFirstObjectByType<SoundManager>();
+      if (sound == null)
+      {
+        var go = new GameObject("Sound");
+        Undo.RegisterCreatedObjectUndo(go, "Add Sound");
+        sound = go.AddComponent<SoundManager>();
+      }
+      var so = new SerializedObject(sound);
+      foreach (var (property, file) in new[]
+               {
+                 ("_menuMusic", "background_Sound"), ("_gameplayMusic", "Game_play_Sound"),
+                 ("_touch", "touch"), ("_clear", "Clear"), ("_gargle", "Gargle"),
+               })
+      {
+        var slot = so.FindProperty(property);
+        if (slot.objectReferenceValue == null)
+        {
+          slot.objectReferenceValue = AssetDatabase.LoadAssetAtPath<AudioClip>($"{SoundDir}/{file}.wav");
+        }
+      }
+      so.ApplyModifiedProperties();
+      return sound;
+    }
 
     private static GameObject BuildCameraFeed(Transform parent, out Mediapipe.Unity.Screen screen)
     {
@@ -1269,21 +1355,25 @@ namespace BrushGame.EditorTools
       var p = panel.transform;
       Txt("Title", p, new Vector2(0f, 540f), new Vector2(860f, 100f), "보호자 설정", 60, Dark, bold: true);
 
-      Txt("SoundLabel", p, new Vector2(-180f, 380f), new Vector2(460f, 100f), "사운드", 46, Dark, TextAnchor.MiddleLeft, true);
-      var sound = Btn("SoundButton", p, new Vector2(250f, 380f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
-      Txt("VoiceLabel", p, new Vector2(-180f, 230f), new Vector2(460f, 110f), "안내 음성\n(준비 중)", 40, Dark, TextAnchor.MiddleLeft, true);
-      var voice = Btn("VoiceButton", p, new Vector2(250f, 230f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
+      Txt("SoundLabel", p, new Vector2(-180f, 410f), new Vector2(460f, 100f), "사운드", 46, Dark, TextAnchor.MiddleLeft, true);
+      var sound = Btn("SoundButton", p, new Vector2(250f, 410f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
+      Txt("MusicLabel", p, new Vector2(-180f, 290f), new Vector2(460f, 100f), "배경음", 42, Dark, TextAnchor.MiddleLeft, true);
+      var music = Btn("MusicButton", p, new Vector2(250f, 290f), new Vector2(280f, 100f), "켜짐", Primary, Color.white, 40);
+      Txt("EffectLabel", p, new Vector2(-180f, 180f), new Vector2(460f, 100f), "효과음", 42, Dark, TextAnchor.MiddleLeft, true);
+      var effect = Btn("EffectButton", p, new Vector2(250f, 180f), new Vector2(280f, 100f), "켜짐", Primary, Color.white, 40);
+      Txt("VoiceLabel", p, new Vector2(-180f, 60f), new Vector2(460f, 110f), "안내 음성\n(준비 중)", 40, Dark, TextAnchor.MiddleLeft, true);
+      var voice = Btn("VoiceButton", p, new Vector2(250f, 60f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
 
-      Txt("ZoneLabel", p, new Vector2(0f, 90f), new Vector2(860f, 80f), "구역별 양치 시간", 46, Dark, bold: true);
+      Txt("ZoneLabel", p, new Vector2(0f, -70f), new Vector2(860f, 80f), "구역별 양치 시간", 46, Dark, bold: true);
       var zoneCards = new Object[3];
       for (var i = 0; i < 3; i++)
       {
-        zoneCards[i] = Card($"Zone{i}", p, new Vector2(-270f + 270f * i, -40f), new Vector2(240f, 130f), $"{20 + 5 * i}초", 48, false, Vector2.zero, Vector2.zero, Vector2.zero, Lavender);
+        zoneCards[i] = Card($"Zone{i}", p, new Vector2(-270f + 270f * i, -180f), new Vector2(240f, 120f), $"{20 + 5 * i}초", 48, false, Vector2.zero, Vector2.zero, Vector2.zero, Lavender);
       }
 
-      var reset = Btn("ResetButton", p, new Vector2(0f, -260f), new Vector2(640f, 130f), "프로필 초기화", Red, Color.white, 44);
-      Txt("ResetNote", p, new Vector2(0f, -360f), new Vector2(860f, 60f), "처음 실행 상태로 돌아가요 (기록 삭제)", 30, Grey);
-      var close = Btn("CloseButton", p, new Vector2(0f, -500f), new Vector2(640f, 140f), "닫기", Primary, Color.white, 52);
+      var reset = Btn("ResetButton", p, new Vector2(0f, -340f), new Vector2(640f, 120f), "프로필 초기화", Red, Color.white, 44);
+      Txt("ResetNote", p, new Vector2(0f, -425f), new Vector2(860f, 50f), "처음 실행 상태로 돌아가요 (기록 삭제)", 30, Grey);
+      var close = Btn("CloseButton", p, new Vector2(0f, -535f), new Vector2(640f, 130f), "닫기", Primary, Color.white, 52);
 
       var confirm = Stretch("ConfirmReset", root);
       confirm.gameObject.AddComponent<Image>().color = Dim;
@@ -1296,6 +1386,10 @@ namespace BrushGame.EditorTools
       var panelComp = root.gameObject.AddComponent<GuardianSettingsPanel>();
       SetRef(panelComp, "_soundButton", sound);
       SetRef(panelComp, "_soundLabel", sound.GetComponentInChildren<Text>());
+      SetRef(panelComp, "_musicButton", music);
+      SetRef(panelComp, "_musicLabel", music.GetComponentInChildren<Text>());
+      SetRef(panelComp, "_effectButton", effect);
+      SetRef(panelComp, "_effectLabel", effect.GetComponentInChildren<Text>());
       SetRef(panelComp, "_voiceButton", voice);
       SetRef(panelComp, "_voiceLabel", voice.GetComponentInChildren<Text>());
       SetArray(panelComp, "_zoneSecondCards", zoneCards);

@@ -11,6 +11,8 @@ namespace BrushGame
     public Sprite image;
     [Tooltip("얼굴~쇄골까지 자른 그림. 선택 카드, 프로필에 쓴다. 비우면 image")]
     public Sprite portrait;
+    [Tooltip("양치 화면에서 충치균과 겨루는 친구의 프레임 그림. 비우면 씬에 들어 있는 기본 친구(토끼)")]
+    public BattleView.Frames battle = new BattleView.Frames();
 
     public Sprite Portrait => portrait != null ? portrait : image;
   }
