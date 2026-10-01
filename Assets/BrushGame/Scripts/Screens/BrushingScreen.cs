@@ -127,6 +127,7 @@ namespace BrushGame
     private int _cheerLineIndex;
 
     private ArtSwap _faceArt, _mouthTopArt, _mouthBottomArt;
+    private Vector2[] _zoneHomes;
     private Transform _feedParent;
     private int _feedIndex;
     private Vector2 _feedAnchorMin, _feedAnchorMax, _feedOffsetMin, _feedOffsetMax;
@@ -150,6 +151,15 @@ namespace BrushGame
       _facePlaceholder.SetActive(!_faceArt.Apply(patient.face));
       _mouthTopPlaceholder.SetActive(!_mouthTopArt.Apply(patient.mouthTop));
       _mouthBottomPlaceholder.SetActive(!_mouthBottomArt.Apply(patient.mouthBottom));
+      // 얼굴마다 입 구멍 위치와 크기가 달라서 잇몸(과 그 안의 이빨)을 환자별로 옮긴다
+      _mouthTopArt.Place(patient.mouthScale, patient.mouthTopPos);
+      _mouthBottomArt.Place(patient.mouthScale, patient.mouthBottomPos);
+      _zoneHomes ??= System.Array.ConvertAll(_zones, z => ((RectTransform)z.transform).anchoredPosition);
+      for (var i = 0; i < _zones.Length; i++)
+      {
+        var shift = IsUpper(i) ? patient.teethTopShift : patient.teethBottomShift;
+        ((RectTransform)_zones[i].transform).anchoredPosition = _zoneHomes[i] + new Vector2(0f, shift);
+      }
     }
 
     public override void OnShow()
@@ -497,6 +507,8 @@ namespace BrushGame
       private readonly Sprite _sprite;
       private readonly Color _color;
       private readonly Image.Type _type;
+      private readonly Vector2 _pos;
+      private readonly Vector3 _scale;
 
       public ArtSwap(Image image)
       {
@@ -504,6 +516,16 @@ namespace BrushGame
         _sprite = image.sprite;
         _color = image.color;
         _type = image.type;
+        _pos = image.rectTransform.anchoredPosition;
+        _scale = image.rectTransform.localScale;
+      }
+
+      /// <summary>scale이 0이면 씬에 놓인 자리로 되돌린다</summary>
+      public void Place(float scale, Vector2 pos)
+      {
+        var rt = _image.rectTransform;
+        rt.anchoredPosition = scale > 0f ? pos : _pos;
+        rt.localScale = scale > 0f ? Vector3.one * scale : _scale;
       }
 
       /// <summary>그림을 넣었으면 true</summary>

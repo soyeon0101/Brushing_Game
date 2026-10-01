@@ -62,16 +62,16 @@ namespace BrushGame
       }
     }
 
-    /// <summary>설정의 배경음/효과음 켬/끔과 크기를 반영한다</summary>
+    /// <summary>설정의 배경음/효과음 켬/끔과 볼륨을 반영한다 (인스펙터 크기 × 보호자 설정 볼륨)</summary>
     public static void ApplySettings()
     {
       if (_instance == null)
       {
         return;
       }
-      _instance._music.volume = _instance._musicVolume;
+      _instance._music.volume = _instance._musicVolume * Mathf.Clamp01(Settings.musicVolume);
       _instance._music.mute = !Settings.music;
-      _instance._effect.volume = _instance._effectVolume;
+      _instance._effect.volume = _instance._effectVolume * Mathf.Clamp01(Settings.effectVolume);
       _instance._effect.mute = !Settings.effects;
     }
 

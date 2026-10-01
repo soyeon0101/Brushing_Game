@@ -1346,59 +1346,229 @@ namespace BrushGame.EditorTools
       return stamp;
     }
 
+    /// <summary>
+    ///   보호자 설정 창: 위쪽 탭(사운드, 게임 설정)과 탭마다 페이지 하나. 탭을 늘리려면 tabNames에 이름을 더하고 페이지를 만든다.
+    ///   확인 팝업 하나를 양치 시간 변경과 초기화가 같이 쓴다.
+    ///   그림(Art/UI/UI_SettingsPanel, Art/Icons/Icon_*, Art/Hud/Hud_Sound*)이 없으면 임시 도형과 글자로 만든다.
+    /// </summary>
     private static GuardianSettingsPanel BuildSettings(Transform parent)
     {
+      var frameArt = LoadArt(UiArtDir, "UI_SettingsPanel");
+      var soundOn = LoadArt(HudArtDir, "Hud_SoundOn");
+      var soundOff = LoadArt(HudArtDir, "Hud_SoundOff");
+
       var root = Stretch("GuardianSettings", parent);
       var dim = root.gameObject.AddComponent<Image>();
       dim.color = Dim;
-      var panel = Img("Panel", root, Vector2.zero, new Vector2(920f, 1260f), Color.white, _rounded);
+      var panel = Frame("Panel", root, new Vector2(1000f, 1340f), frameArt);
       var p = panel.transform;
-      Txt("Title", p, new Vector2(0f, 540f), new Vector2(860f, 100f), "보호자 설정", 60, Dark, bold: true);
+      Txt("Title", p, new Vector2(0f, 490f), new Vector2(760f, 90f), "보호자 설정", 58, Dark, bold: true);
 
-      Txt("SoundLabel", p, new Vector2(-180f, 410f), new Vector2(460f, 100f), "사운드", 46, Dark, TextAnchor.MiddleLeft, true);
-      var sound = Btn("SoundButton", p, new Vector2(250f, 410f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
-      Txt("MusicLabel", p, new Vector2(-180f, 290f), new Vector2(460f, 100f), "배경음", 42, Dark, TextAnchor.MiddleLeft, true);
-      var music = Btn("MusicButton", p, new Vector2(250f, 290f), new Vector2(280f, 100f), "켜짐", Primary, Color.white, 40);
-      Txt("EffectLabel", p, new Vector2(-180f, 180f), new Vector2(460f, 100f), "효과음", 42, Dark, TextAnchor.MiddleLeft, true);
-      var effect = Btn("EffectButton", p, new Vector2(250f, 180f), new Vector2(280f, 100f), "켜짐", Primary, Color.white, 40);
-      Txt("VoiceLabel", p, new Vector2(-180f, 60f), new Vector2(460f, 110f), "안내 음성\n(준비 중)", 40, Dark, TextAnchor.MiddleLeft, true);
-      var voice = Btn("VoiceButton", p, new Vector2(250f, 60f), new Vector2(280f, 110f), "켜짐", Primary, Color.white, 44);
-
-      Txt("ZoneLabel", p, new Vector2(0f, -70f), new Vector2(860f, 80f), "구역별 양치 시간", 46, Dark, bold: true);
-      var zoneCards = new Object[3];
-      for (var i = 0; i < 3; i++)
+      // 탭: 왼쪽부터 차례로 (나중에 계정 연동 같은 탭이 붙을 수 있다)
+      var tabNames = new[] { "사운드", "게임 설정" };
+      var tabIcons = new[] { soundOn, LoadArt(IconArtDir, "Icon_TabGame") };
+      var tabButtons = new Button[tabNames.Length];
+      for (var i = 0; i < tabNames.Length; i++)
       {
-        zoneCards[i] = Card($"Zone{i}", p, new Vector2(-270f + 270f * i, -180f), new Vector2(240f, 120f), $"{20 + 5 * i}초", 48, false, Vector2.zero, Vector2.zero, Vector2.zero, Lavender);
+        var tab = Btn($"Tab{i}", p, new Vector2(-260f + 270f * i, 380f), new Vector2(250f, 96f), tabNames[i], Lavender, Dark, 38);
+        if (tabIcons[i] != null)
+        {
+          ArtSlot.Apply(Img("Icon", tab.transform, new Vector2(-82f, 2f), new Vector2(64f, 64f), Color.white, null), tabIcons[i]);
+          tab.GetComponentInChildren<Text>().rectTransform.anchoredPosition = new Vector2(30f, 0f);
+        }
+        tabButtons[i] = tab;
       }
+      Img("TabLine", p, new Vector2(0f, 315f), new Vector2(780f, 6f), new Color(0.85f, 0.8f, 0.97f), null);
 
-      var reset = Btn("ResetButton", p, new Vector2(0f, -340f), new Vector2(640f, 120f), "프로필 초기화", Red, Color.white, 44);
-      Txt("ResetNote", p, new Vector2(0f, -425f), new Vector2(860f, 50f), "처음 실행 상태로 돌아가요 (기록 삭제)", 30, Grey);
-      var close = Btn("CloseButton", p, new Vector2(0f, -535f), new Vector2(640f, 130f), "닫기", Primary, Color.white, 52);
+      // ---- 사운드 탭 ----
+      var soundPage = Node("SoundPage", p, Vector2.zero, new Vector2(1000f, 1340f));
+      var master = VolumeRow("Master", soundPage, 200f, "전체", soundOn, soundOn);
+      var music = VolumeRow("Music", soundPage, 65f, "배경음", LoadArt(IconArtDir, "Icon_Music"), soundOn);
+      var effect = VolumeRow("Effect", soundPage, -70f, "효과음", LoadArt(IconArtDir, "Icon_Bell"), soundOn);
+      RowIcon("VoiceIcon", soundPage, new Vector2(-335f, -215f), LoadArt(IconArtDir, "Icon_Voice"));
+      Txt("VoiceLabel", soundPage, new Vector2(-120f, -215f), new Vector2(300f, 110f), "안내 음성\n(준비 중)", 36, Dark, TextAnchor.MiddleLeft, true);
+      var voice = Btn("VoiceButton", soundPage, new Vector2(290f, -215f), new Vector2(170f, 84f), "켜짐", Primary, Color.white, 34);
 
-      var confirm = Stretch("ConfirmReset", root);
+      // ---- 게임 설정 탭 ----
+      var gamePage = Node("GamePage", p, Vector2.zero, new Vector2(1000f, 1340f));
+      RowIcon("ZoneIcon", gamePage, new Vector2(-230f, 200f), LoadArt(HudArtDir, "Hud_Timer"));
+      Txt("ZoneLabel", gamePage, new Vector2(40f, 200f), new Vector2(460f, 80f), "구역별 양치 시간", 44, Dark, TextAnchor.MiddleLeft, true);
+      var input = InputBox("ZoneSecondsInput", gamePage, new Vector2(-130f, 60f), new Vector2(280f, 120f), GuardianSettings.DefaultZoneSeconds.ToString());
+      input.characterLimit = 2;
+      input.contentType = InputField.ContentType.IntegerNumber;
+      input.textComponent.alignment = TextAnchor.MiddleCenter;
+      ((Text)input.placeholder).alignment = TextAnchor.MiddleCenter;
+      ((Image)input.targetGraphic).color = new Color(0.96f, 0.94f, 1f);
+      Txt("Unit", gamePage, new Vector2(55f, 60f), new Vector2(80f, 100f), "초", 48, Dark, bold: true);
+      var apply = Btn("ZoneSecondsApply", gamePage, new Vector2(250f, 60f), new Vector2(200f, 110f), "변경", Primary, Color.white, 44);
+      var note = Txt("ZoneSecondsNote", gamePage, new Vector2(0f, -50f), new Vector2(760f, 60f),
+        $"{GuardianSettings.MinZoneSeconds}~{GuardianSettings.MaxZoneSeconds}초 사이 숫자를 넣어주세요", 28, Grey);
+      // 실수로 누르지 않게 오른쪽 아래에 작게
+      var reset = Btn("ResetButton", gamePage, new Vector2(290f, -405f), new Vector2(170f, 64f), "초기화", Red, Color.white, 28);
+      gamePage.gameObject.SetActive(false);
+
+      var close = Btn("CloseButton", p, new Vector2(0f, -515f), new Vector2(560f, 120f), "닫기", Primary, Color.white, 50);
+
+      var confirm = Stretch("Confirm", root);
       confirm.gameObject.AddComponent<Image>().color = Dim;
-      var box = Img("Box", confirm, Vector2.zero, new Vector2(820f, 520f), Color.white, _rounded);
-      Txt("Message", box.transform, new Vector2(0f, 100f), new Vector2(760f, 200f), "처음부터 다시 시작할까요?\n기록이 모두 지워져요", 46, Dark, bold: true);
-      var cancel = Btn("CancelButton", box.transform, new Vector2(-190f, -140f), new Vector2(330f, 130f), "취소", Lavender, Dark, 48);
-      var confirmReset = Btn("ConfirmButton", box.transform, new Vector2(190f, -140f), new Vector2(330f, 130f), "초기화", Red, Color.white, 48);
+      var box = Frame("Box", confirm, new Vector2(880f, 600f), frameArt);
+      var message = Txt("Message", box.transform, new Vector2(0f, 80f), new Vector2(680f, 220f), "", 42, Dark, bold: true);
+      var cancel = Btn("CancelButton", box.transform, new Vector2(-170f, -140f), new Vector2(290f, 120f), "취소", Lavender, Dark, 46);
+      var ok = Btn("OkButton", box.transform, new Vector2(170f, -140f), new Vector2(290f, 120f), "확인", Primary, Color.white, 46);
       confirm.gameObject.SetActive(false);
 
       var panelComp = root.gameObject.AddComponent<GuardianSettingsPanel>();
-      SetRef(panelComp, "_soundButton", sound);
-      SetRef(panelComp, "_soundLabel", sound.GetComponentInChildren<Text>());
-      SetRef(panelComp, "_musicButton", music);
-      SetRef(panelComp, "_musicLabel", music.GetComponentInChildren<Text>());
-      SetRef(panelComp, "_effectButton", effect);
-      SetRef(panelComp, "_effectLabel", effect.GetComponentInChildren<Text>());
+      var so = new SerializedObject(panelComp);
+      var tabs = so.FindProperty("_tabs");
+      tabs.arraySize = tabNames.Length;
+      var pages = new[] { soundPage.gameObject, gamePage.gameObject };
+      for (var i = 0; i < tabNames.Length; i++)
+      {
+        tabs.GetArrayElementAtIndex(i).FindPropertyRelative("button").objectReferenceValue = tabButtons[i];
+        tabs.GetArrayElementAtIndex(i).FindPropertyRelative("page").objectReferenceValue = pages[i];
+      }
+      foreach (var (field, row) in new[] { ("_master", master), ("_music", music), ("_effect", effect) })
+      {
+        so.FindProperty($"{field}.slider").objectReferenceValue = row.slider;
+        so.FindProperty($"{field}.muteButton").objectReferenceValue = row.mute;
+        var label = row.mute.GetComponentInChildren<Text>(true);
+        so.FindProperty($"{field}.muteLabel").objectReferenceValue = label != null && label.gameObject.activeSelf ? label : null;
+        so.FindProperty($"{field}.muteIcon").objectReferenceValue = soundOn != null ? row.mute.targetGraphic : null;
+      }
+      so.FindProperty("_soundOnIcon").objectReferenceValue = soundOn;
+      so.FindProperty("_soundOffIcon").objectReferenceValue = soundOff;
+      so.ApplyModifiedPropertiesWithoutUndo();
       SetRef(panelComp, "_voiceButton", voice);
       SetRef(panelComp, "_voiceLabel", voice.GetComponentInChildren<Text>());
-      SetArray(panelComp, "_zoneSecondCards", zoneCards);
+      SetRef(panelComp, "_zoneSecondsInput", input);
+      SetRef(panelComp, "_zoneSecondsApply", apply);
+      SetRef(panelComp, "_zoneSecondsNote", note);
       SetRef(panelComp, "_resetButton", reset);
       SetRef(panelComp, "_closeButton", close);
       SetRef(panelComp, "_confirmPanel", confirm.gameObject);
-      SetRef(panelComp, "_confirmResetButton", confirmReset);
-      SetRef(panelComp, "_cancelResetButton", cancel);
+      SetRef(panelComp, "_confirmMessage", message);
+      SetRef(panelComp, "_confirmOkButton", ok);
+      SetRef(panelComp, "_confirmOkLabel", ok.GetComponentInChildren<Text>());
+      SetRef(panelComp, "_confirmCancelButton", cancel);
       return panelComp;
+    }
+
+    /// <summary>창 판. 테두리 그림(9-slice)이 있으면 그것을, 없으면 흰 둥근 판</summary>
+    private static Image Frame(string name, Transform parent, Vector2 size, Sprite art)
+    {
+      if (art == null)
+      {
+        return Img(name, parent, Vector2.zero, size, Color.white, _rounded);
+      }
+      var frame = Img(name, parent, Vector2.zero, size, Color.white, art);
+      frame.type = Image.Type.Sliced;
+      // 그림 테두리(약 170px)가 창에서 130px 정도로 보이게
+      frame.pixelsPerUnitMultiplier = 1.3f;
+      frame.raycastTarget = true;
+      return frame;
+    }
+
+    private static void RowIcon(string name, Transform parent, Vector2 pos, Sprite art)
+    {
+      if (art != null)
+      {
+        ArtSlot.Apply(Img(name, parent, pos, new Vector2(84f, 84f), Color.white, null), art);
+      }
+    }
+
+    /// <summary>아이콘 + 이름 + 볼륨 슬라이더 + 음소거 버튼 한 줄. 켬/끔 아이콘이 있으면 음소거 버튼을 아이콘으로</summary>
+    private static (Slider slider, Button mute) VolumeRow(string name, Transform parent, float y, string label, Sprite icon, Sprite muteArt)
+    {
+      RowIcon($"{name}Icon", parent, new Vector2(-335f, y), icon);
+      Txt($"{name}Label", parent, new Vector2(-195f, y), new Vector2(170f, 90f), label, 40, Dark, TextAnchor.MiddleLeft, true);
+      var slider = VolumeSlider($"{name}Slider", parent, new Vector2(65f, y), new Vector2(300f, 72f));
+      var mute = Btn($"{name}Mute", parent, new Vector2(300f, y), new Vector2(muteArt != null ? 100f : 170f, muteArt != null ? 100f : 84f), "켜짐", Primary, Color.white, 34);
+      IconButton(mute, muteArt);
+      return (slider, mute);
+    }
+
+    private static Slider VolumeSlider(string name, Transform parent, Vector2 pos, Vector2 size)
+    {
+      // 손잡이: 행성처럼 동그란 UFO (없으면 동그라미). 막대보다 조금 크게
+      var ufo = LoadArt(IconArtDir, "Icon_Ufo");
+      var handleHeight = ufo != null ? size.y + 14f : size.y;
+      var handleWidth = ufo != null ? handleHeight * ufo.rect.width / ufo.rect.height : size.y;
+      var root = Node(name, parent, pos, size);
+      // 손잡이 가운데가 움직이는 범위와 채움 영역을 같은 폭으로 잡아야 채움 끝이 손잡이 가운데와 맞는다.
+      // UFO는 막대보다 커서 양끝에서는 막대 밖으로 조금 나간다
+      var inset = size.y / 2f + 4f;
+      const float barHeight = 28f;
+      var track = Img("Track", root, Vector2.zero, new Vector2(0f, barHeight), new Color(0.86f, 0.82f, 0.97f), _rounded, ppu: 4f);
+      track.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+      track.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+      track.rectTransform.sizeDelta = new Vector2(-inset, barHeight);
+      var fillArea = Node("FillArea", root, Vector2.zero, new Vector2(-inset * 2f, barHeight));
+      fillArea.anchorMin = new Vector2(0f, 0.5f);
+      fillArea.anchorMax = new Vector2(1f, 0.5f);
+      var fill = Img("Fill", fillArea, Vector2.zero, Vector2.zero, new Color(1f, 0.5f, 0.75f), _rounded, ppu: 4f);
+      var handleArea = Stretch("HandleArea", root);
+      handleArea.offsetMin = new Vector2(inset, 0f);
+      handleArea.offsetMax = new Vector2(-inset, 0f);
+      var handle = Img("Handle", handleArea, Vector2.zero, new Vector2(handleWidth, handleHeight - size.y), Color.white, _circle);
+      handle.raycastTarget = true;
+      if (ufo != null)
+      {
+        handle.sprite = ufo;
+        handle.preserveAspect = true;
+      }
+      else
+      {
+        handle.gameObject.AddComponent<Shadow>().effectColor = new Color(0.2f, 0.1f, 0.4f, 0.35f);
+      }
+
+      var slider = root.gameObject.AddComponent<Slider>();
+      slider.fillRect = fill.rectTransform;
+      slider.handleRect = handle.rectTransform;
+      slider.targetGraphic = handle;
+      slider.direction = Slider.Direction.LeftToRight;
+      slider.minValue = 0f;
+      slider.maxValue = 1f;
+      slider.value = 1f;
+      // 슬라이더가 정한 앵커는 그대로 두고, 채움은 막대 왼쪽 끝부터 시작하게
+      fill.rectTransform.offsetMin = new Vector2(-inset / 2f, 0f);
+      fill.rectTransform.offsetMax = Vector2.zero;
+      if (ufo != null)
+      {
+        // UFO 그림은 위에 돔이 있어 고리가 가운데보다 아래(약 60% 높이)에 있다. 고리가 막대에 오도록 올린다
+        handle.rectTransform.anchoredPosition = new Vector2(0f, handleHeight * 0.095f);
+      }
+      return slider;
+    }
+
+    /// <summary>열려 있는 Main 씬의 보호자 설정 창만 새로 만들어 GameFlow에 다시 연결하고 저장한다</summary>
+    [MenuItem("BrushGame/Rebuild Settings Panel")]
+    public static void RebuildSettings()
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var old = Object.FindFirstObjectByType<GuardianSettingsPanel>(FindObjectsInactive.Include);
+      if (flow == null || old == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      var parent = old.transform.parent;
+      var index = old.transform.GetSiblingIndex();
+      var active = old.gameObject.activeSelf;
+      Undo.DestroyObjectImmediate(old.gameObject);
+
+      var panel = BuildSettings(parent);
+      Undo.RegisterCreatedObjectUndo(panel.gameObject, "Rebuild Settings Panel");
+      panel.transform.SetSiblingIndex(index);
+      panel.gameObject.SetActive(active);
+      SetRef(flow, "_settings", panel);
+      FontRoles.ApplyAll(panel.transform);
+      UiSkin.ApplyAll(panel.transform);
+
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 보호자 설정 창을 다시 만들고 씬을 저장했습니다.");
     }
 
     // ---------- UI helpers ----------

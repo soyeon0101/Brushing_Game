@@ -34,6 +34,16 @@ namespace BrushGame
     public Sprite mouthTop;
     [Tooltip("양치 화면의 아랫잇몸/입 모양. 비우면 기본 잇몸")]
     public Sprite mouthBottom;
+    [Tooltip("얼굴 그림(1080x1920) 가운데 기준 잇몸 크기. 0이면 씬에 놓인 위치/크기 그대로 (지그 얼굴 기준)")]
+    [Min(0f)] public float mouthScale;
+    [Tooltip("mouthScale이 0이 아닐 때 윗잇몸 그림의 가운데 위치")]
+    public Vector2 mouthTopPos;
+    [Tooltip("mouthScale이 0이 아닐 때 아랫잇몸 그림의 가운데 위치")]
+    public Vector2 mouthBottomPos;
+    [Tooltip("윗니를 잇몸 그림 안에서 위아래로 옮기는 값 (위가 +). 잇몸 띠 위치가 지그 그림과 다를 때")]
+    public float teethTopShift;
+    [Tooltip("아랫니를 잇몸 그림 안에서 위아래로 옮기는 값 (위가 +)")]
+    public float teethBottomShift;
     [TextArea] public string requestLine;
 
     public Sprite Portrait => portrait != null ? portrait : before;

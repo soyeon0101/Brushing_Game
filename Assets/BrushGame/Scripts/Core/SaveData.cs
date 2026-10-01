@@ -29,23 +29,28 @@ namespace BrushGame
   [Serializable]
   public class GuardianSettings
   {
-    public const int MinZoneSeconds = 20;
-    public const int MaxZoneSeconds = 30;
+    public const int MinZoneSeconds = 10;
+    public const int MaxZoneSeconds = 60;
+    public const int DefaultZoneSeconds = 20;
 
-    [Tooltip("전체 소리. 끄면 배경음/효과음 설정과 상관없이 모두 꺼진다")]
+    [Tooltip("전체 소리. 끄면(음소거) 배경음/효과음 설정과 상관없이 모두 꺼진다")]
     public bool sound = true;
-    [Tooltip("배경음")]
+    [Tooltip("배경음 (끄면 음소거)")]
     public bool music = true;
-    [Tooltip("버튼, 완료 같은 효과음")]
+    [Tooltip("버튼, 완료 같은 효과음 (끄면 음소거)")]
     public bool effects = true;
+    [Tooltip("전체 볼륨 0~1")]
+    [Range(0f, 1f)] public float masterVolume = 1f;
+    [Range(0f, 1f)] public float musicVolume = 1f;
+    [Range(0f, 1f)] public float effectVolume = 1f;
     [Tooltip("음성 안내는 아직 없음. 설정값만 저장해 둔다")]
     public bool voiceGuide = true;
     [Tooltip("한 구역을 닦아야 하는 시간 (초)")]
-    public int zoneSeconds = 25;
+    public int zoneSeconds = DefaultZoneSeconds;
 
     public void ApplyAudio()
     {
-      AudioListener.volume = sound ? 1f : 0f;
+      AudioListener.volume = sound ? Mathf.Clamp01(masterVolume) : 0f;
       SoundManager.ApplySettings();
     }
   }
