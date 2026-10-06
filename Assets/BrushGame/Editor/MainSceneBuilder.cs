@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -32,6 +33,8 @@ namespace BrushGame.EditorTools
     private const string LoadingArtDir = "Assets/BrushGame/Art/Loading";
     private const string FontDir = "Assets/BrushGame/Fonts";
     private const string SoundDir = "Assets/BrushGame/Sound";
+    private const string MapArtDir = "Assets/BrushGame/Art/Map";
+    private const string PlanetDataDir = "Assets/BrushGame/Data/Planets";
     private const string BootstrapPrefabPath = "Assets/MediaPipeUnity/Samples/Resources/Bootstrap.prefab";
 
     // 임시 색. 그림을 넣을 때 Image 색을 흰색으로 바꿔야 그림 색이 그대로 나온다 (ArtSlot은 자동으로 함)
@@ -76,6 +79,7 @@ namespace BrushGame.EditorTools
       var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
       LoadCommonAssets();
       var catalog = LoadOrCreateCatalog();
+      LinkPlanets(catalog);
 
       var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
       var cam = camGo.AddComponent<Camera>();
@@ -128,6 +132,7 @@ namespace BrushGame.EditorTools
       var brushing = BuildBrushing(screens, hub, (RectTransform)feed.transform);
       var complete = BuildComplete(screens);
       var stickers = BuildStickers(screens);
+      var spaceMap = BuildSpaceMap(screens);
       var badges = BuildBadges(screens);
       var settings = BuildSettings(root);
       BuildQuitConfirm(root);
@@ -149,6 +154,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_brushing", brushing);
       SetRef(flow, "_complete", complete);
       SetRef(flow, "_stickers", stickers);
+      SetRef(flow, "_spaceMap", spaceMap);
       SetRef(flow, "_badges", badges);
       SetRef(flow, "_settings", settings);
       BuildSound();
@@ -289,6 +295,44 @@ namespace BrushGame.EditorTools
       }
       BuildSound();
       EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+    }
+
+    /// <summary>
+    ///   열려 있는 Main 씬에 우주 항해 지도를 만들어 GameFlow에 연결한다 (이미 있으면 다시 만든다).
+    ///   지도는 로비의 반짝 배지 버튼 자리라, 예전 배지함은 지우지 않고 씬에 남긴다 (GameFlow가 열지 않는다).
+    ///   행성 데이터가 없으면 Art/Map/planet_*.png로 만든다.
+    /// </summary>
+    [MenuItem("BrushGame/Add Space Map To Scene")]
+    public static void AddSpaceMapMenu()
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var stickers = Object.FindFirstObjectByType<StickerScreen>(FindObjectsInactive.Include);
+      if (flow == null || stickers == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      var catalog = AssetDatabase.LoadAssetAtPath<GameCatalog>(CatalogPath);
+      LinkPlanets(catalog);
+
+      var old = Object.FindFirstObjectByType<SpaceMapScreen>(FindObjectsInactive.Include);
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old.gameObject);
+      }
+      var screen = BuildSpaceMap(stickers.transform.parent);
+      Undo.RegisterCreatedObjectUndo(screen.gameObject, "Add Space Map");
+      screen.transform.SetSiblingIndex(stickers.transform.GetSiblingIndex() + 1);
+      screen.gameObject.SetActive(false);
+      SetRef(flow, "_spaceMap", screen);
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
+
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 우주 항해 지도를 만들고 씬을 저장했습니다.");
     }
 
     [MenuItem("BrushGame/Delete Save Data")]
@@ -682,7 +726,8 @@ namespace BrushGame.EditorTools
       var treat = Btn("TreatButton", c, new Vector2(0f, -380f), new Vector2(800f, 170f), "치료 시작", Green, Color.white, 64);
       var bookButton = NavButton("BookButton", c, -378f, "환자 도감", "Icon_Book");
       var stickerButton = NavButton("StickerButton", c, -126f, "스티커판", "Icon_Stickers");
-      var badgeButton = NavButton("BadgeButton", c, 126f, "반짝 배지", "Icon_Badge");
+      // 반짝 배지 자리는 우주 항해 지도가 맡는다 (필드 이름은 그대로 _badgeButton)
+      var badgeButton = NavButton("BadgeButton", c, 126f, "지도", "map_icon", MapArtDir);
       var settingsButton = NavButton("SettingsButton", c, 378f, "보호자 설정", "Icon_Settings");
 
       var screen = root.gameObject.AddComponent<LobbyScreen>();
@@ -723,12 +768,12 @@ namespace BrushGame.EditorTools
     }
 
     /// <summary>로비 아래 메뉴 버튼: 위에 그림, 아래에 이름 (그림이 없으면 이름만 가운데)</summary>
-    internal static Button NavButton(string name, Transform parent, float x, string label, string iconName)
+    internal static Button NavButton(string name, Transform parent, float x, string label, string iconName, string iconDir = IconArtDir)
     {
       LoadCommonAssets();
       var size = new Vector2(235f, 230f);
       var button = Btn(name, parent, new Vector2(x, -700f), size, label, Lavender, Dark, 34);
-      var icon = LoadArt(IconArtDir, iconName);
+      var icon = LoadArt(iconDir, iconName);
       if (icon != null)
       {
         ArtSlot.Apply(Img("Icon", button.transform, new Vector2(0f, 28f), new Vector2(140f, 140f), Color.white, null), icon);
@@ -1333,6 +1378,145 @@ namespace BrushGame.EditorTools
       so.FindProperty("_backButton").objectReferenceValue = BackButton(c);
       so.ApplyModifiedPropertiesWithoutUndo();
       return screen;
+    }
+
+    /// <summary>
+    ///   우주 항해 지도: 세로 스크롤 하나에 배경·점선·발판·행성·우주선을 층으로 둔다.
+    ///   행성·발판·점선은 화면을 열 때 SpaceMapScreen이 GameCatalog.planets 수에 맞춰 만든다.
+    ///   그림은 Art/Map (map_bg, pad_off, pad_on, path_dot, ship_icon, planet_lock_sheet). 없으면 임시 도형.
+    /// </summary>
+    private static SpaceMapScreen BuildSpaceMap(Transform parent)
+    {
+      var (root, c) = NewScreen("SpaceMap", parent, new Color(0.16f, 0.13f, 0.3f));
+
+      // 스크롤은 safe area 밖까지 화면 전체
+      var scrollRt = Stretch("Scroll", root);
+      scrollRt.SetSiblingIndex(0);
+      var scroll = scrollRt.gameObject.AddComponent<ScrollRect>();
+      var viewport = Stretch("Viewport", scrollRt);
+      viewport.gameObject.AddComponent<RectMask2D>();
+      viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+      var content = Node("Content", viewport, Vector2.zero, new Vector2(0f, 4000f));
+      content.anchorMin = new Vector2(0f, 0f);
+      content.anchorMax = new Vector2(1f, 0f);
+      content.pivot = new Vector2(0.5f, 0f);
+      content.sizeDelta = new Vector2(0f, 4000f);
+      scroll.content = content;
+      scroll.viewport = viewport;
+      scroll.horizontal = false;
+      scroll.vertical = true;
+      scroll.movementType = ScrollRect.MovementType.Clamped;
+      scroll.scrollSensitivity = 40f;
+
+      var bg = Stretch("Background", content).gameObject.AddComponent<RawImage>();
+      bg.raycastTarget = false;
+      var bgSprite = LoadArt(MapArtDir, "map_bg");
+      bg.texture = bgSprite != null ? bgSprite.texture : null;
+      bg.color = bgSprite != null ? Color.white : new Color(0.75f, 0.68f, 0.95f);
+      Layer("Dots", content);
+      Layer("Pads", content);
+      Layer("Planets", content);
+      var ship = Img("Ship", content, Vector2.zero, new Vector2(130f, 130f), Color.white, LoadArt(MapArtDir, "ship_icon") ?? _circle, new Vector2(0.5f, 0f));
+      ship.preserveAspect = true;
+
+      // 위: 제목과 남은 칸
+      var header = Img("Header", c, new Vector2(0f, 760f), new Vector2(940f, 220f), new Color(1f, 1f, 1f, 0.85f), _rounded);
+      var title = Txt("Title", header.transform, new Vector2(0f, 40f), new Vector2(900f, 100f), "우주 항해 지도", 60, Dark, bold: true);
+      var remaining = Txt("Remaining", header.transform, new Vector2(0f, -50f), new Vector2(900f, 70f), "", 42, Primary, bold: true);
+      var back = Btn("BackButton", c, new Vector2(0f, -790f), new Vector2(800f, 160f), "로비로 돌아가기", Primary, Color.white, 56);
+
+      // 개발용 버튼 (에디터·Development Build에서만 켜진다)
+      var dev = Node("DevPanel", c, new Vector2(0f, 590f), new Vector2(1000f, 90f));
+      string[] devLabels = { "+1", "+5", "+15", "초기화", "다시 보기", "해금만" };
+      var devButtons = new Button[devLabels.Length];
+      for (var i = 0; i < devLabels.Length; i++)
+      {
+        devButtons[i] = Btn($"Dev{i}", dev, new Vector2(-415f + 166f * i, 0f), new Vector2(156f, 80f), devLabels[i], new Color(0.2f, 0.2f, 0.25f, 0.85f), Color.white, 30);
+      }
+
+      var screen = root.gameObject.AddComponent<SpaceMapScreen>();
+      var so = new SerializedObject(screen);
+      so.FindProperty("_scroll").objectReferenceValue = scroll;
+      so.FindProperty("_content").objectReferenceValue = content;
+      so.FindProperty("_background").objectReferenceValue = bg;
+      so.FindProperty("_dotLayer").objectReferenceValue = content.Find("Dots");
+      so.FindProperty("_padLayer").objectReferenceValue = content.Find("Pads");
+      so.FindProperty("_planetLayer").objectReferenceValue = content.Find("Planets");
+      so.FindProperty("_ship").objectReferenceValue = ship.rectTransform;
+      so.FindProperty("_title").objectReferenceValue = title;
+      so.FindProperty("_remaining").objectReferenceValue = remaining;
+      so.FindProperty("_backButton").objectReferenceValue = back;
+      so.FindProperty("_padOff").objectReferenceValue = LoadArt(MapArtDir, "pad_off") ?? _rounded;
+      so.FindProperty("_padOn").objectReferenceValue = LoadArt(MapArtDir, "pad_on") ?? _circle;
+      so.FindProperty("_dot").objectReferenceValue = LoadArt(MapArtDir, "path_dot") ?? _circle;
+      var frames = LoadLockFrames();
+      var framesProp = so.FindProperty("_unlockFrames");
+      framesProp.arraySize = frames.Length;
+      for (var i = 0; i < frames.Length; i++)
+      {
+        framesProp.GetArrayElementAtIndex(i).objectReferenceValue = frames[i];
+      }
+      so.FindProperty("_devPanel").objectReferenceValue = dev.gameObject;
+      string[] devFields = { "_devAdd1", "_devAdd5", "_devAdd15", "_devReset", "_devReplay", "_devUnlock" };
+      for (var i = 0; i < devFields.Length; i++)
+      {
+        so.FindProperty(devFields[i]).objectReferenceValue = devButtons[i];
+      }
+      so.ApplyModifiedPropertiesWithoutUndo();
+      return screen;
+    }
+
+    /// <summary>지도 내용 안의 층 하나 (아래 가운데 기준 좌표)</summary>
+    private static RectTransform Layer(string name, Transform parent)
+    {
+      var rt = Stretch(name, parent);
+      return rt;
+    }
+
+    /// <summary>잠금 해제 프레임 planet_lock_00~10 (시트를 잘라 둔 것). 없으면 빈 배열</summary>
+    private static Sprite[] LoadLockFrames()
+    {
+      return AssetDatabase.LoadAllAssetsAtPath($"{MapArtDir}/planet_lock_sheet.png")
+        .OfType<Sprite>()
+        .Where(s => s.name.StartsWith("planet_lock_"))
+        .OrderBy(s => s.name)
+        .ToArray();
+    }
+
+    /// <summary>
+    ///   행성 데이터가 비어 있으면 Art/Map/planet_*.png로 PlanetData를 만들어 순서대로 넣는다.
+    ///   순서는 아래(처음)부터. 바꾸려면 GameCatalog.planets 순서를 바꾸면 된다.
+    /// </summary>
+    private static void LinkPlanets(GameCatalog catalog)
+    {
+      if (catalog == null || (catalog.planets != null && catalog.planets.Length > 0))
+      {
+        return;
+      }
+      (string file, string name)[] order =
+      {
+        ("forest", "숲 행성"), ("ocean", "바다 행성"), ("desert", "사막 행성"),
+        ("ice", "얼음 행성"), ("candy", "사탕 행성"), ("ring", "고리 행성"),
+      };
+      Directory.CreateDirectory(PlanetDataDir);
+      var list = new List<PlanetData>();
+      foreach (var (file, name) in order)
+      {
+        var path = $"{PlanetDataDir}/Planet_{Capitalize(file)}.asset";
+        var data = AssetDatabase.LoadAssetAtPath<PlanetData>(path);
+        if (data == null)
+        {
+          data = ScriptableObject.CreateInstance<PlanetData>();
+          AssetDatabase.CreateAsset(data, path);
+        }
+        data.planetName = name;
+        data.sprite = LoadArt(MapArtDir, $"planet_{file}");
+        EditorUtility.SetDirty(data);
+        list.Add(data);
+      }
+      catalog.planets = list.ToArray();
+      EditorUtility.SetDirty(catalog);
+      AssetDatabase.SaveAssets();
     }
 
     /// <summary>칭찬 도장 한 개. Art/UI/UI_Stamp.png 가 없으면 노란 원</summary>

@@ -82,6 +82,8 @@ namespace BrushGame
     public int[] ages = { 4, 5, 6, 7 };
     public PlayerCharacter[] characters;
     public PatientInfo[] patients;
+    [Tooltip("우주 항해 지도의 행성. 첫 행성이 맨 아래(처음부터 열림). 하나 추가하면 지도가 한 구간 길어진다")]
+    public PlanetData[] planets;
     [Tooltip("배지함에 보이는 순서. 매일 양치 3개가 윗줄, 도장판 3개가 아랫줄")]
     public BadgeInfo[] badges =
     {

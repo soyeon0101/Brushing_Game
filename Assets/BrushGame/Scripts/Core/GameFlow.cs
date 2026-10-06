@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace BrushGame
@@ -8,7 +7,7 @@ namespace BrushGame
   ///   화면 전환의 유일한 기준. 화면들은 버튼 이벤트만 알리고, 어디로 갈지는 여기서 정한다.
   ///   첫 실행: 타이틀 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
   ///   이후:   타이틀 → 로비
-  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → (새 배지가 있으면 배지함) → 로비
+  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → 우주 항해 지도 → 로비
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
@@ -29,6 +28,9 @@ namespace BrushGame
     [SerializeField] private BrushingScreen _brushing;
     [SerializeField] private CompleteScreen _complete;
     [SerializeField] private StickerScreen _stickers;
+    [Tooltip("우주 항해 지도. 로비의 반짝 배지 버튼과 치료 후 스티커판 다음에 열린다")]
+    [SerializeField] private SpaceMapScreen _spaceMap;
+    [Tooltip("예전 반짝 배지함. 우주 항해 지도로 바꾸면서 열지 않지만 되돌릴 수 있게 씬에 남겨 둔다 (꺼진 채로)")]
     [SerializeField] private BadgeScreen _badges;
     [SerializeField] private GuardianSettingsPanel _settings;
 
@@ -36,7 +38,8 @@ namespace BrushGame
     private PlayerProfile _draft = new PlayerProfile();
     private PatientInfo _patient;
     private StickerRecord _newSticker;
-    private List<BadgeInfo> _newBadges = new List<BadgeInfo>();
+    /// <summary>치료 직후 스티커판이면 다음에 지도를 보여준다 (로비에서 연 스티커판은 로비로)</summary>
+    private bool _mapAfterStickers;
 
     private static SaveData Data => SaveStore.Data;
 
@@ -104,6 +107,7 @@ namespace BrushGame
       };
       _lobby.StickersPressed += () =>
       {
+        _mapAfterStickers = false;
         _stickers.Setup(Data, null);
         Show(_stickers);
       };
@@ -128,27 +132,26 @@ namespace BrushGame
       };
       _brushing.QuitRequested += ShowLobby;
       _brushing.Completed += OnTreatmentComplete;
+      // 치료 후: 스티커판에서 도장 쾅 → 우주 항해 지도에서 새 발판 켜짐 → 로비
       _complete.Confirmed += () =>
       {
+        _mapAfterStickers = true;
         _stickers.Setup(Data, _newSticker);
         Show(_stickers);
       };
       _stickers.BackPressed += () =>
       {
-        if (_newBadges.Count == 0)
+        if (!_mapAfterStickers)
         {
           ShowLobby();
           return;
         }
-        _badges.Setup(_catalog, Data, _newBadges);
-        _newBadges = new List<BadgeInfo>();
-        Show(_badges);
+        _mapAfterStickers = false;
+        ShowSpaceMap();
       };
-      _lobby.BadgesPressed += () =>
-      {
-        _badges.Setup(_catalog, Data, null);
-        Show(_badges);
-      };
+      // 반짝 배지 버튼 자리는 우주 항해 지도가 맡는다 (배지 화면은 되돌릴 수 있게 꺼진 채로 남긴다)
+      _lobby.BadgesPressed += ShowSpaceMap;
+      _spaceMap.BackPressed += ShowLobby;
       _badges.BackPressed += ShowLobby;
 
       Show(_title);
@@ -157,7 +160,7 @@ namespace BrushGame
     private ScreenBase[] AllScreens() => new ScreenBase[]
     {
       _title, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _stickers, _badges,
+      _cameraReady, _loading, _brushing, _complete, _stickers, _spaceMap, _badges,
     };
 
     private void Show(ScreenBase screen)
@@ -198,6 +201,12 @@ namespace BrushGame
       Show(_ageSelect);
     }
 
+    private void ShowSpaceMap()
+    {
+      _spaceMap.Setup(_catalog, Data);
+      Show(_spaceMap);
+    }
+
     private void ShowLobby()
     {
       var character = _catalog.FindCharacter(Data.profile.characterId);
@@ -223,7 +232,8 @@ namespace BrushGame
         Data.curedPatientIds.Add(_patient.id);
       }
       Data.treatmentCount++;
-      _newBadges = BadgeRules.Evaluate(_catalog, Data);
+      // 배지 화면은 지금 열지 않지만, 되돌릴 때를 위해 배지 기록은 계속 쌓아 둔다
+      BadgeRules.Evaluate(_catalog, Data);
       SaveStore.Save();
 
       _complete.Setup(_patient);

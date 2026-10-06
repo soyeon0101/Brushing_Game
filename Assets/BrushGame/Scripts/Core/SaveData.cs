@@ -69,6 +69,11 @@ namespace BrushGame
     public List<string> curedPatientIds = new List<string>();
     public List<string> badgeIds = new List<string>();
     public int treatmentCount;
+    [Tooltip("우주 항해 지도에서 마지막으로 켜지는 연출을 보여준 발판 수")]
+    public int lastSeenLitPads;
+
+    /// <summary>우주 항해 지도의 켜진 발판 수 = 받은 도장 수 (같은 날 같은 끼니는 한 번만이라 규칙이 같다)</summary>
+    public int TotalLitPads => stickers.Count;
 
     /// <summary>닉네임까지 정해야 프로필이 만들어진 것으로 본다</summary>
     public bool HasProfile => profile != null && !string.IsNullOrEmpty(profile.nickname);

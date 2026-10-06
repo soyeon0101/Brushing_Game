@@ -162,6 +162,13 @@ MonoBehaviour:
     requestLine: "\uBC18\uC9DD\uBC18\uC9DD \uBE5B\uB098\uB358 \uC774\uAC00 \uBE5B\uC744
       \uC783\uC5C8\uC5B4\u2026 \uB3C4\uC640\uC918!"
     thanksLine: "\uBC1D\uAC8C \uBE5B\uB098\uC694, \uBC14\uB974\uAC8C \uB2E6\uC544\uC694!"
+  planets:
+  - {fileID: 11400000, guid: d967105971b9c9444a0ff124a7a359c5, type: 2}
+  - {fileID: 11400000, guid: 587eaab8799aacc4aa0690e8293bc9c8, type: 2}
+  - {fileID: 11400000, guid: 11a3bf659c068fa438c1a669dc4250ef, type: 2}
+  - {fileID: 11400000, guid: 7b3145ecb27e3a340bcc95a0ffae4e51, type: 2}
+  - {fileID: 11400000, guid: 523969440f338a2438709227cee07307, type: 2}
+  - {fileID: 11400000, guid: 3c0334419bce4ab4fba4e4fcd38adcfd, type: 2}
   badges:
   - id: streak7
     displayName: "\uB9E4\uC77C\uB9E4\uC77C \uBCC4"
