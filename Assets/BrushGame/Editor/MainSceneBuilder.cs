@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -32,6 +33,9 @@ namespace BrushGame.EditorTools
     private const string LoadingArtDir = "Assets/BrushGame/Art/Loading";
     private const string FontDir = "Assets/BrushGame/Fonts";
     private const string SoundDir = "Assets/BrushGame/Sound";
+    private const string MapArtDir = "Assets/BrushGame/Art/Map";
+    private const string PlanetDataDir = "Assets/BrushGame/Data/Planets";
+    private const string PartnerArtDir = "Assets/BrushGame/Art/Partner";
     private const string BootstrapPrefabPath = "Assets/MediaPipeUnity/Samples/Resources/Bootstrap.prefab";
 
     // 임시 색. 그림을 넣을 때 Image 색을 흰색으로 바꿔야 그림 색이 그대로 나온다 (ArtSlot은 자동으로 함)
@@ -76,6 +80,7 @@ namespace BrushGame.EditorTools
       var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
       LoadCommonAssets();
       var catalog = LoadOrCreateCatalog();
+      LinkPlanets(catalog);
 
       var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
       var cam = camGo.AddComponent<Camera>();
@@ -128,6 +133,8 @@ namespace BrushGame.EditorTools
       var brushing = BuildBrushing(screens, hub, (RectTransform)feed.transform);
       var complete = BuildComplete(screens);
       var stickers = BuildStickers(screens);
+      var spaceMap = BuildSpaceMap(screens);
+      var partnerRoom = BuildPartnerRoom(screens);
       var badges = BuildBadges(screens);
       var settings = BuildSettings(root);
       BuildQuitConfirm(root);
@@ -149,6 +156,8 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_brushing", brushing);
       SetRef(flow, "_complete", complete);
       SetRef(flow, "_stickers", stickers);
+      SetRef(flow, "_spaceMap", spaceMap);
+      SetRef(flow, "_partnerRoom", partnerRoom);
       SetRef(flow, "_badges", badges);
       SetRef(flow, "_settings", settings);
       BuildSound();
@@ -289,6 +298,139 @@ namespace BrushGame.EditorTools
       }
       BuildSound();
       EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+    }
+
+    /// <summary>
+    ///   열려 있는 Main 씬에 우주 항해 지도를 만들어 GameFlow에 연결한다 (이미 있으면 다시 만든다).
+    ///   지도는 로비의 반짝 배지 버튼 자리라, 예전 배지함은 지우지 않고 씬에 남긴다 (GameFlow가 열지 않는다).
+    ///   행성 데이터가 없으면 Art/Map/planet_*.png로 만든다.
+    /// </summary>
+    [MenuItem("BrushGame/Add Space Map To Scene")]
+    public static void AddSpaceMapMenu()
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var stickers = Object.FindFirstObjectByType<StickerScreen>(FindObjectsInactive.Include);
+      if (flow == null || stickers == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      var catalog = AssetDatabase.LoadAssetAtPath<GameCatalog>(CatalogPath);
+      LinkPlanets(catalog);
+
+      var old = Object.FindFirstObjectByType<SpaceMapScreen>(FindObjectsInactive.Include);
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old.gameObject);
+      }
+      var screen = BuildSpaceMap(stickers.transform.parent);
+      Undo.RegisterCreatedObjectUndo(screen.gameObject, "Add Space Map");
+      screen.transform.SetSiblingIndex(stickers.transform.GetSiblingIndex() + 1);
+      screen.gameObject.SetActive(false);
+      SetRef(flow, "_spaceMap", screen);
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
+
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 우주 항해 지도를 만들고 씬을 저장했습니다.");
+    }
+
+    /// <summary>
+    ///   열려 있는 Main 씬에 파트너 방을 만들어 GameFlow에 연결하고 (이미 있으면 다시 만든다),
+    ///   로비 스티커판 버튼 자리를 파트너 방으로 바꾼다. 되돌리기: BrushGame/Restore/Sticker Button - Sticker Board
+    /// </summary>
+    [MenuItem("BrushGame/Add Partner Room To Scene")]
+    public static void AddPartnerRoomMenu()
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var stickers = Object.FindFirstObjectByType<StickerScreen>(FindObjectsInactive.Include);
+      if (flow == null || stickers == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      SetupPartnerArt();
+      var old = Object.FindFirstObjectByType<PartnerRoomScreen>(FindObjectsInactive.Include);
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old.gameObject);
+      }
+      var screen = BuildPartnerRoom(stickers.transform.parent);
+      Undo.RegisterCreatedObjectUndo(screen.gameObject, "Add Partner Room");
+      screen.transform.SetSiblingIndex(stickers.transform.GetSiblingIndex() + 1);
+      screen.gameObject.SetActive(false);
+      SetRef(flow, "_partnerRoom", screen);
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
+      SetStickerSlot(GameFlow.StickerSlot.PartnerRoom);
+      Debug.Log("[BrushGame] 파트너 방을 만들고 로비 스티커판 버튼 자리를 파트너 방으로 바꿨습니다.");
+    }
+
+    // ---------- 로비 버튼 자리 바꾸기 / 되돌리기 (팀원 PC에서도 MCP 메뉴 실행 한 번으로) ----------
+
+    [MenuItem("BrushGame/Lobby/Sticker Button - Partner Room")]
+    public static void StickerSlotPartner() => SetStickerSlot(GameFlow.StickerSlot.PartnerRoom);
+
+    [MenuItem("BrushGame/Restore/Sticker Button - Sticker Board")]
+    public static void StickerSlotBoard() => SetStickerSlot(GameFlow.StickerSlot.StickerBoard);
+
+    [MenuItem("BrushGame/Lobby/Badge Button - Space Map")]
+    public static void BadgeSlotMap() => SetBadgeSlot(GameFlow.BadgeSlot.SpaceMap);
+
+    [MenuItem("BrushGame/Restore/Badge Button - Badge Box")]
+    public static void BadgeSlotBox() => SetBadgeSlot(GameFlow.BadgeSlot.BadgeBox);
+
+    /// <summary>스티커판 버튼 자리: GameFlow 스위치 + 로비 버튼 그림·글자를 같이 바꾸고 씬을 저장한다</summary>
+    private static void SetStickerSlot(GameFlow.StickerSlot slot)
+    {
+      LoadCommonAssets();
+      var partner = slot == GameFlow.StickerSlot.PartnerRoom;
+      SetLobbySlot("_stickerSlot", (int)slot, "_stickerButton",
+        partner ? "내 친구" : "스티커판",
+        partner ? LoadArt(PartnerArtDir, "partner_icon") : LoadArt(IconArtDir, "Icon_Stickers"));
+    }
+
+    private static void SetBadgeSlot(GameFlow.BadgeSlot slot)
+    {
+      LoadCommonAssets();
+      var map = slot == GameFlow.BadgeSlot.SpaceMap;
+      SetLobbySlot("_badgeSlot", (int)slot, "_badgeButton",
+        map ? "지도" : "반짝 배지",
+        map ? LoadArt(MapArtDir, "map_icon") : LoadArt(IconArtDir, "Icon_Badge"));
+    }
+
+    private static void SetLobbySlot(string flowField, int value, string buttonField, string label, Sprite icon)
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var lobby = Object.FindFirstObjectByType<LobbyScreen>(FindObjectsInactive.Include);
+      if (flow == null || lobby == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      var so = new SerializedObject(flow);
+      so.FindProperty(flowField).enumValueIndex = value;
+      so.ApplyModifiedProperties();
+
+      var button = (Button)new SerializedObject(lobby).FindProperty(buttonField).objectReferenceValue;
+      var text = button.GetComponentInChildren<Text>(true);
+      Undo.RecordObject(text, "Lobby Slot");
+      text.text = label;
+      var iconImage = button.transform.Find("Icon")?.GetComponent<Image>();
+      if (iconImage != null && icon != null)
+      {
+        Undo.RecordObject(iconImage, "Lobby Slot");
+        iconImage.sprite = icon;
+        iconImage.preserveAspect = true;
+      }
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log($"[BrushGame] 로비 {buttonField} 자리: {label}");
     }
 
     [MenuItem("BrushGame/Delete Save Data")]
@@ -682,7 +824,8 @@ namespace BrushGame.EditorTools
       var treat = Btn("TreatButton", c, new Vector2(0f, -380f), new Vector2(800f, 170f), "치료 시작", Green, Color.white, 64);
       var bookButton = NavButton("BookButton", c, -378f, "환자 도감", "Icon_Book");
       var stickerButton = NavButton("StickerButton", c, -126f, "스티커판", "Icon_Stickers");
-      var badgeButton = NavButton("BadgeButton", c, 126f, "반짝 배지", "Icon_Badge");
+      // 반짝 배지 자리는 우주 항해 지도가 맡는다 (필드 이름은 그대로 _badgeButton)
+      var badgeButton = NavButton("BadgeButton", c, 126f, "지도", "map_icon", MapArtDir);
       var settingsButton = NavButton("SettingsButton", c, 378f, "보호자 설정", "Icon_Settings");
 
       var screen = root.gameObject.AddComponent<LobbyScreen>();
@@ -723,12 +866,12 @@ namespace BrushGame.EditorTools
     }
 
     /// <summary>로비 아래 메뉴 버튼: 위에 그림, 아래에 이름 (그림이 없으면 이름만 가운데)</summary>
-    internal static Button NavButton(string name, Transform parent, float x, string label, string iconName)
+    internal static Button NavButton(string name, Transform parent, float x, string label, string iconName, string iconDir = IconArtDir)
     {
       LoadCommonAssets();
       var size = new Vector2(235f, 230f);
       var button = Btn(name, parent, new Vector2(x, -700f), size, label, Lavender, Dark, 34);
-      var icon = LoadArt(IconArtDir, iconName);
+      var icon = LoadArt(iconDir, iconName);
       if (icon != null)
       {
         ArtSlot.Apply(Img("Icon", button.transform, new Vector2(0f, 28f), new Vector2(140f, 140f), Color.white, null), icon);
@@ -1333,6 +1476,351 @@ namespace BrushGame.EditorTools
       so.FindProperty("_backButton").objectReferenceValue = BackButton(c);
       so.ApplyModifiedPropertiesWithoutUndo();
       return screen;
+    }
+
+    /// <summary>
+    ///   우주 항해 지도: 세로 스크롤 하나에 배경·점선·발판·행성·우주선을 층으로 둔다.
+    ///   행성·발판·점선은 화면을 열 때 SpaceMapScreen이 GameCatalog.planets 수에 맞춰 만든다.
+    ///   그림은 Art/Map (map_bg, pad_off, pad_on, path_dot, ship_icon, planet_lock_sheet). 없으면 임시 도형.
+    /// </summary>
+    private static SpaceMapScreen BuildSpaceMap(Transform parent)
+    {
+      var (root, c) = NewScreen("SpaceMap", parent, new Color(0.16f, 0.13f, 0.3f));
+
+      // 스크롤은 safe area 밖까지 화면 전체
+      var scrollRt = Stretch("Scroll", root);
+      scrollRt.SetSiblingIndex(0);
+      var scroll = scrollRt.gameObject.AddComponent<ScrollRect>();
+      var viewport = Stretch("Viewport", scrollRt);
+      viewport.gameObject.AddComponent<RectMask2D>();
+      viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+      var content = Node("Content", viewport, Vector2.zero, new Vector2(0f, 4000f));
+      content.anchorMin = new Vector2(0f, 0f);
+      content.anchorMax = new Vector2(1f, 0f);
+      content.pivot = new Vector2(0.5f, 0f);
+      content.sizeDelta = new Vector2(0f, 4000f);
+      scroll.content = content;
+      scroll.viewport = viewport;
+      scroll.horizontal = false;
+      scroll.vertical = true;
+      scroll.movementType = ScrollRect.MovementType.Clamped;
+      scroll.scrollSensitivity = 40f;
+
+      var bg = Stretch("Background", content).gameObject.AddComponent<RawImage>();
+      bg.raycastTarget = false;
+      var bgSprite = LoadArt(MapArtDir, "map_bg");
+      bg.texture = bgSprite != null ? bgSprite.texture : null;
+      bg.color = bgSprite != null ? Color.white : new Color(0.75f, 0.68f, 0.95f);
+      Layer("Dots", content);
+      Layer("Pads", content);
+      Layer("Planets", content);
+      var ship = Img("Ship", content, Vector2.zero, new Vector2(130f, 130f), Color.white, LoadArt(MapArtDir, "ship_icon") ?? _circle, new Vector2(0.5f, 0f));
+      ship.preserveAspect = true;
+
+      // 위: 제목과 남은 칸
+      var header = Img("Header", c, new Vector2(0f, 760f), new Vector2(940f, 220f), new Color(1f, 1f, 1f, 0.85f), _rounded);
+      var title = Txt("Title", header.transform, new Vector2(0f, 40f), new Vector2(900f, 100f), "우주 항해 지도", 60, Dark, bold: true);
+      var remaining = Txt("Remaining", header.transform, new Vector2(0f, -50f), new Vector2(900f, 70f), "", 42, Primary, bold: true);
+      var back = Btn("BackButton", c, new Vector2(0f, -790f), new Vector2(800f, 160f), "로비로 돌아가기", Primary, Color.white, 56);
+
+      // 개발용 버튼 (에디터·Development Build에서만 켜진다)
+      var dev = Node("DevPanel", c, new Vector2(0f, 590f), new Vector2(1000f, 90f));
+      string[] devLabels = { "+1", "+5", "+15", "초기화", "다시 보기", "해금만" };
+      var devButtons = new Button[devLabels.Length];
+      for (var i = 0; i < devLabels.Length; i++)
+      {
+        devButtons[i] = Btn($"Dev{i}", dev, new Vector2(-415f + 166f * i, 0f), new Vector2(156f, 80f), devLabels[i], new Color(0.2f, 0.2f, 0.25f, 0.85f), Color.white, 30);
+      }
+
+      var screen = root.gameObject.AddComponent<SpaceMapScreen>();
+      var so = new SerializedObject(screen);
+      so.FindProperty("_scroll").objectReferenceValue = scroll;
+      so.FindProperty("_content").objectReferenceValue = content;
+      so.FindProperty("_background").objectReferenceValue = bg;
+      so.FindProperty("_dotLayer").objectReferenceValue = content.Find("Dots");
+      so.FindProperty("_padLayer").objectReferenceValue = content.Find("Pads");
+      so.FindProperty("_planetLayer").objectReferenceValue = content.Find("Planets");
+      so.FindProperty("_ship").objectReferenceValue = ship.rectTransform;
+      so.FindProperty("_title").objectReferenceValue = title;
+      so.FindProperty("_remaining").objectReferenceValue = remaining;
+      so.FindProperty("_backButton").objectReferenceValue = back;
+      so.FindProperty("_padOff").objectReferenceValue = LoadArt(MapArtDir, "pad_off") ?? _rounded;
+      so.FindProperty("_padOn").objectReferenceValue = LoadArt(MapArtDir, "pad_on") ?? _circle;
+      so.FindProperty("_dot").objectReferenceValue = LoadArt(MapArtDir, "path_dot") ?? _circle;
+      var frames = LoadLockFrames();
+      var framesProp = so.FindProperty("_unlockFrames");
+      framesProp.arraySize = frames.Length;
+      for (var i = 0; i < frames.Length; i++)
+      {
+        framesProp.GetArrayElementAtIndex(i).objectReferenceValue = frames[i];
+      }
+      so.FindProperty("_devPanel").objectReferenceValue = dev.gameObject;
+      string[] devFields = { "_devAdd1", "_devAdd5", "_devAdd15", "_devReset", "_devReplay", "_devUnlock" };
+      for (var i = 0; i < devFields.Length; i++)
+      {
+        so.FindProperty(devFields[i]).objectReferenceValue = devButtons[i];
+      }
+      so.ApplyModifiedPropertiesWithoutUndo();
+      return screen;
+    }
+
+    /// <summary>지도 내용 안의 층 하나 (아래 가운데 기준 좌표)</summary>
+    private static RectTransform Layer(string name, Transform parent)
+    {
+      var rt = Stretch(name, parent);
+      return rt;
+    }
+
+    /// <summary>잠금 해제 프레임 planet_lock_00~10 (시트를 잘라 둔 것). 없으면 빈 배열</summary>
+    private static Sprite[] LoadLockFrames()
+    {
+      return AssetDatabase.LoadAllAssetsAtPath($"{MapArtDir}/planet_lock_sheet.png")
+        .OfType<Sprite>()
+        .Where(s => s.name.StartsWith("planet_lock_"))
+        .OrderBy(s => s.name)
+        .ToArray();
+    }
+
+    /// <summary>
+    ///   행성 데이터가 비어 있으면 Art/Map/planet_*.png로 PlanetData를 만들어 순서대로 넣는다.
+    ///   순서는 아래(처음)부터. 바꾸려면 GameCatalog.planets 순서를 바꾸면 된다.
+    /// </summary>
+    private static void LinkPlanets(GameCatalog catalog)
+    {
+      if (catalog == null || (catalog.planets != null && catalog.planets.Length > 0))
+      {
+        return;
+      }
+      (string file, string name)[] order =
+      {
+        ("forest", "숲 행성"), ("ocean", "바다 행성"), ("desert", "사막 행성"),
+        ("ice", "얼음 행성"), ("candy", "사탕 행성"), ("ring", "고리 행성"),
+      };
+      Directory.CreateDirectory(PlanetDataDir);
+      var list = new List<PlanetData>();
+      foreach (var (file, name) in order)
+      {
+        var path = $"{PlanetDataDir}/Planet_{Capitalize(file)}.asset";
+        var data = AssetDatabase.LoadAssetAtPath<PlanetData>(path);
+        if (data == null)
+        {
+          data = ScriptableObject.CreateInstance<PlanetData>();
+          AssetDatabase.CreateAsset(data, path);
+        }
+        data.planetName = name;
+        data.sprite = LoadArt(MapArtDir, $"planet_{file}");
+        EditorUtility.SetDirty(data);
+        list.Add(data);
+      }
+      catalog.planets = list.ToArray();
+      EditorUtility.SetDirty(catalog);
+      AssetDatabase.SaveAssets();
+    }
+
+    /// <summary>파트너 그림 불러오기 설정: 눈 모양은 9-slice(반원 모서리), 나머지는 기본 스프라이트</summary>
+    private static void SetupPartnerArt()
+    {
+      var path = $"{PartnerArtDir}/eye_shape.png";
+      var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+      if (imp != null && imp.spriteBorder != new Vector4(63, 63, 63, 63))
+      {
+        imp.textureType = TextureImporterType.Sprite;
+        imp.spriteBorder = new Vector4(63, 63, 63, 63);
+        imp.SaveAndReimport();
+      }
+    }
+
+    /// <summary>
+    ///   파트너 방: 방 배경(Art/Partner/partner_room_bg) 위 바닥에 로봇.
+    ///   로봇 = 몸 그림 한 장(partner_body) + 화면 위 코드 눈(PartnerEyes) + 소품 자리. 움직임은 PartnerRobot이 코드로 만든다.
+    ///   화면 위치는 partner_body 그림 기준 (가운데 0.4985, 0.5959 / 크기 0.6172 x 0.2441, 아래가 0).
+    /// </summary>
+    private static PartnerRoomScreen BuildPartnerRoom(Transform parent)
+    {
+      var (root, c) = NewScreen("PartnerRoom", parent, Lavender);
+      // 방과 로봇은 1080x1920 판 하나에 두고 판째로 화면을 덮게 키운다 (화면 비율이 달라도 바닥과 로봇이 어긋나지 않게)
+      var stage = Node("Stage", root, Vector2.zero, new Vector2(1080f, 1920f));
+      stage.gameObject.AddComponent<CoverFit>();
+      stage.SetAsFirstSibling();
+      var room = Img("Room", stage, Vector2.zero, Vector2.zero, Color.white, LoadArt(PartnerArtDir, "partner_room_bg"));
+      Fit(room.rectTransform);
+
+      const float floorY = 430f;   // 오른쪽 아래 밥그릇 버튼과 겹치지 않는 높이
+      var robotSize = new Vector2(340f, 490f);
+      var floor = Stretch("Floor", stage);
+      var bottom = new Vector2(0.5f, 0f);
+      var shadow = Img("Shadow", floor, new Vector2(0f, floorY - 6f), new Vector2(230f, 44f), new Color(0.35f, 0.24f, 0.55f, 0.28f), _circle, bottom);
+
+      var mover = Node("Robot", floor, new Vector2(0f, floorY), robotSize, bottom);
+      mover.pivot = bottom;
+      var visual = Node("Visual", mover, Vector2.zero, robotSize, bottom);
+      visual.pivot = bottom;
+      var body = Img("Body", visual, Vector2.zero, Vector2.zero, Color.white, LoadArt(PartnerArtDir, "partner_body") ?? _circle);
+      Fit(body.rectTransform);
+      body.preserveAspect = true;
+      body.raycastTarget = true;
+      var touch = body.gameObject.AddComponent<Button>();
+      touch.transition = Selectable.Transition.None;
+
+      var screenAnchor = new Vector2(0.4985f, 0.5959f);
+      var screen = Node("Screen", visual, Vector2.zero, new Vector2(robotSize.x * 0.6172f, robotSize.y * 0.2441f), screenAnchor);
+      screen.gameObject.AddComponent<RectMask2D>();
+      var eyeShape = LoadArt(PartnerArtDir, "eye_shape");
+      var eyeGlow = LoadArt(PartnerArtDir, "eye_glow");
+      var eyeHappy = LoadArt(PartnerArtDir, "eye_happy");
+      Image EyePart(string name, Sprite sprite, bool sliced)
+      {
+        var img = Img(name, screen, Vector2.zero, new Vector2(30f, 50f), Color.white, sprite);
+        if (sliced)
+        {
+          img.type = Image.Type.Sliced;
+        }
+        else
+        {
+          img.preserveAspect = !sliced && sprite == eyeHappy;
+        }
+        return img;
+      }
+      var leftGlow = EyePart("LeftGlow", eyeGlow, false);
+      var rightGlow = EyePart("RightGlow", eyeGlow, false);
+      var leftEye = EyePart("LeftEye", eyeShape, true);
+      var rightEye = EyePart("RightEye", eyeShape, true);
+      var leftHappy = EyePart("LeftHappy", eyeHappy, false);
+      var rightHappy = EyePart("RightHappy", eyeHappy, false);
+      var screenProps = Stretch("ScreenProps", screen);
+      var headProps = Node("HeadProps", visual, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.82f));
+
+      // 머리 위 배터리 (충전 기다림·충전 중에만). 채움은 배터리 안쪽에서 가로로 늘어난다
+      var battery = Node("Battery", visual, new Vector2(0f, 20f), new Vector2(180f, 140f), new Vector2(0.5f, 1f));
+      battery.pivot = new Vector2(0.5f, 0f);
+      var batteryArt = Img("Art", battery, Vector2.zero, Vector2.zero, Color.white, LoadArt(PartnerArtDir, "prop_battery") ?? _rounded);
+      Fit(batteryArt.rectTransform);
+      batteryArt.preserveAspect = true;
+      var batteryFill = Img("Fill", battery, new Vector2(28f, 0f), new Vector2(114f, 66f), new Color(1f, 0.45f, 0.45f), null, new Vector2(0f, 0.5f));
+      batteryFill.rectTransform.pivot = new Vector2(0f, 0.5f);
+      battery.gameObject.SetActive(false);
+
+      // 창고 어둠: 로봇 자리만 밝은 원형 그라데이션 + 위에서 내려오는 빛줄기. 데려오면 서서히 사라진다
+      var darkness = Node("Darkness", stage, Vector2.zero, Vector2.zero);
+      Fit(darkness);
+      var darkGroup = darkness.gameObject.AddComponent<CanvasGroup>();
+      darkGroup.blocksRaycasts = false;
+      darkGroup.interactable = false;
+      Img("Spot", darkness, new Vector2(0f, floorY + 230f), new Vector2(2600f, 2600f), Color.white, LoadArt(PartnerArtDir, "fx_spotlight"), bottom);
+      var beam = Img("Beam", darkness, new Vector2(0f, floorY - 20f), new Vector2(520f, 1000f), Color.white, LoadArt(PartnerArtDir, "fx_beam"), bottom);
+      beam.rectTransform.pivot = bottom;
+      darkness.gameObject.SetActive(false);
+
+      var eyes = screen.gameObject.AddComponent<PartnerEyes>();
+      var eso = new SerializedObject(eyes);
+      eso.FindProperty("_screen").objectReferenceValue = screen;
+      eso.FindProperty("_leftEye").objectReferenceValue = leftEye;
+      eso.FindProperty("_rightEye").objectReferenceValue = rightEye;
+      eso.FindProperty("_leftGlow").objectReferenceValue = leftGlow;
+      eso.FindProperty("_rightGlow").objectReferenceValue = rightGlow;
+      eso.FindProperty("_leftHappy").objectReferenceValue = leftHappy;
+      eso.FindProperty("_rightHappy").objectReferenceValue = rightHappy;
+      eso.ApplyModifiedPropertiesWithoutUndo();
+
+      var robot = floor.gameObject.AddComponent<PartnerRobot>();
+      var rso = new SerializedObject(robot);
+      rso.FindProperty("_mover").objectReferenceValue = mover;
+      rso.FindProperty("_visual").objectReferenceValue = visual;
+      rso.FindProperty("_shadow").objectReferenceValue = shadow;
+      rso.FindProperty("_eyes").objectReferenceValue = eyes;
+      rso.FindProperty("_screenProps").objectReferenceValue = screenProps;
+      rso.FindProperty("_headProps").objectReferenceValue = headProps;
+      rso.FindProperty("_touch").objectReferenceValue = touch;
+      rso.FindProperty("_note").objectReferenceValue = LoadArt(PartnerArtDir, "prop_note");
+      rso.FindProperty("_ball").objectReferenceValue = LoadArt(PartnerArtDir, "prop_ball");
+      rso.FindProperty("_font").objectReferenceValue = _font;
+      rso.FindProperty("_grain").objectReferenceValue = LoadArt(PartnerArtDir, "eye_shape");
+      var bowls = new[] { "full", "half", "empty" }.Select(n => LoadArt(PartnerArtDir, $"prop_bowl_{n}")).Where(s => s != null).ToArray();
+      var bowlProp = rso.FindProperty("_bowls");
+      bowlProp.arraySize = bowls.Length;
+      for (var i = 0; i < bowls.Length; i++)
+      {
+        bowlProp.GetArrayElementAtIndex(i).objectReferenceValue = bowls[i];
+      }
+      var fireworks = Enumerable.Range(0, 12).Select(i => LoadArt(PartnerArtDir, $"prop_firework_{i:00}")).Where(s => s != null).ToArray();
+      var fw = rso.FindProperty("_fireworks");
+      fw.arraySize = fireworks.Length;
+      for (var i = 0; i < fireworks.Length; i++)
+      {
+        fw.GetArrayElementAtIndex(i).objectReferenceValue = fireworks[i];
+      }
+      rso.ApplyModifiedPropertiesWithoutUndo();
+
+      // 뒤로가기: 화살표 그림 버튼 (다른 화면의 뒤로가기와 같은 왼쪽 위)
+      var back = ArtButton("BackButton", c, new Vector2(110f, -110f), new Vector2(150f, 150f), LoadArt(PartnerArtDir, "ui_back"), TopLeft);
+      // 밥 주기: 밥그릇 그림 버튼 (오른쪽 아래). 양치 도장 하나가 밥 한 그릇, 남은 수는 분홍 동그라미
+      var bottomRight = new Vector2(1f, 0f);
+      var feed = ArtButton("FeedButton", c, new Vector2(-190f, 160f), new Vector2(250f, 187f), LoadArt(PartnerArtDir, "ui_rice_button"), bottomRight);
+      var badge = Img("Count", feed.transform, new Vector2(98f, 68f), new Vector2(84f, 84f), new Color(1f, 0.45f, 0.65f), _circle);
+      var count = Txt("Number", badge.transform, Vector2.zero, new Vector2(84f, 84f), "0", 46, Color.white, bold: true);
+      var hint = Txt("NoMealHint", c, new Vector2(-190f, 40f), new Vector2(380f, 56f), "양치하면 밥이 생겨요", 30, Dark, bold: true, anchor: bottomRight);
+
+      // 첫 만남: 데려가기 버튼, 이름 짓기 창, 위쪽 안내 말풍선 (말풍선이 가장 위)
+      var bring = Btn("BringButton", c, new Vector2(0f, -560f), new Vector2(600f, 150f), "데려가기", Green, Color.white, 56);
+      bring.gameObject.SetActive(false);
+      var namePanel = Stretch("NamePanel", c);
+      namePanel.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.35f);
+      var nameBox = Img("Box", namePanel, new Vector2(0f, -40f), new Vector2(860f, 520f), Color.white, _rounded);
+      Txt("Title", nameBox.transform, new Vector2(0f, 170f), new Vector2(800f, 90f), "이름을 지어 줘!", 54, Dark, bold: true);
+      var nameInput = InputBox("NameInput", nameBox.transform, new Vector2(0f, 20f), new Vector2(700f, 140f), $"이름 ({PartnerRoomScreen.NameMaxLength}글자까지)");
+      var nameOk = Btn("NameOk", nameBox.transform, new Vector2(0f, -170f), new Vector2(420f, 130f), "좋아!", Primary, Color.white, 52);
+      namePanel.gameObject.SetActive(false);
+      var bubble = Img("Bubble", c, new Vector2(0f, 600f), new Vector2(900f, 210f), new Color(1f, 1f, 1f, 0.94f), _rounded);
+      var bubbleText = Txt("Text", bubble.transform, Vector2.zero, new Vector2(860f, 190f), "", 46, Dark, bold: true);
+      bubble.gameObject.SetActive(false);
+
+      // 개발용 버튼 (에디터·Development Build에서만 켜진다): 첫 만남 다시 보기. 뒤로 버튼 옆 맨 윗줄 (말풍선을 가리지 않게)
+      var dev = Node("DevPanel", c, new Vector2(90f, 850f), new Vector2(860f, 90f));
+      string[] devLabels = { "창고부터", "깨우기", "이름 다시", "밥 +3" };
+      var devButtons = new Button[devLabels.Length];
+      for (var i = 0; i < devLabels.Length; i++)
+      {
+        devButtons[i] = Btn($"Dev{i}", dev, new Vector2(215f * (i - 1.5f), 0f), new Vector2(200f, 80f), devLabels[i], new Color(0.2f, 0.2f, 0.25f, 0.85f), Color.white, 30);
+      }
+
+      var screenComp = root.gameObject.AddComponent<PartnerRoomScreen>();
+      SetRef(screenComp, "_devPanel", dev.gameObject);
+      SetRef(screenComp, "_devStorage", devButtons[0]);
+      SetRef(screenComp, "_devWake", devButtons[1]);
+      SetRef(screenComp, "_devRename", devButtons[2]);
+      SetRef(screenComp, "_devMeals", devButtons[3]);
+      SetRef(screenComp, "_darkness", darkGroup);
+      SetRef(screenComp, "_bubble", bubble.gameObject);
+      SetRef(screenComp, "_bubbleText", bubbleText);
+      SetRef(screenComp, "_bringButton", bring);
+      SetRef(screenComp, "_battery", battery.gameObject);
+      SetRef(screenComp, "_batteryFill", batteryFill.rectTransform);
+      SetRef(screenComp, "_batteryFillImage", batteryFill);
+      SetRef(screenComp, "_namePanel", namePanel.gameObject);
+      SetRef(screenComp, "_nameInput", nameInput);
+      SetRef(screenComp, "_nameOkButton", nameOk);
+      SetRef(screenComp, "_robot", robot);
+      SetRef(screenComp, "_backButton", back);
+      SetRef(screenComp, "_feedButton", feed);
+      SetRef(screenComp, "_countBadge", badge.gameObject);
+      SetRef(screenComp, "_countText", count);
+      SetRef(screenComp, "_noMealHint", hint.gameObject);
+      return screenComp;
+    }
+
+    /// <summary>그림 한 장짜리 버튼 (누르면 살짝 어두워지고, 못 누를 땐 흐리게)</summary>
+    private static Button ArtButton(string name, Transform parent, Vector2 pos, Vector2 size, Sprite art, Vector2 anchor)
+    {
+      var img = Img(name, parent, pos, size, Color.white, art ?? _circle, anchor);
+      img.preserveAspect = true;
+      img.raycastTarget = true;
+      var button = img.gameObject.AddComponent<Button>();
+      button.targetGraphic = img;
+      var colors = button.colors;
+      colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+      colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
+      button.colors = colors;
+      return button;
     }
 
     /// <summary>칭찬 도장 한 개. Art/UI/UI_Stamp.png 가 없으면 노란 원</summary>

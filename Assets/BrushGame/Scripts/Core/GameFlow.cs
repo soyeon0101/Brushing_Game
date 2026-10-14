@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace BrushGame
@@ -8,10 +7,16 @@ namespace BrushGame
   ///   화면 전환의 유일한 기준. 화면들은 버튼 이벤트만 알리고, 어디로 갈지는 여기서 정한다.
   ///   첫 실행: 타이틀 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
   ///   이후:   타이틀 → 로비
-  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → (새 배지가 있으면 배지함) → 로비
+  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → 우주 항해 지도 → 로비
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
+    /// <summary>로비 스티커판 버튼 자리가 여는 화면 (BrushGame/Lobby 메뉴로 바꾸고 되돌린다)</summary>
+    public enum StickerSlot { StickerBoard, PartnerRoom }
+
+    /// <summary>로비 반짝 배지 버튼 자리가 여는 화면</summary>
+    public enum BadgeSlot { BadgeBox, SpaceMap }
+
     [SerializeField] private GameCatalog _catalog;
     [Tooltip("카메라 준비·양치 화면에서만 보이는 카메라 영상")]
     [SerializeField] private GameObject _cameraFeed;
@@ -29,14 +34,24 @@ namespace BrushGame
     [SerializeField] private BrushingScreen _brushing;
     [SerializeField] private CompleteScreen _complete;
     [SerializeField] private StickerScreen _stickers;
+    [Tooltip("우주 항해 지도. 로비의 반짝 배지 버튼과 치료 후 스티커판 다음에 열린다")]
+    [SerializeField] private SpaceMapScreen _spaceMap;
+    [Tooltip("반짝 배지함. 배지 버튼 자리를 지도로 바꿔도 되돌릴 수 있게 씬에 남겨 둔다")]
     [SerializeField] private BadgeScreen _badges;
+    [Tooltip("파트너 방 (로봇 친구)")]
+    [SerializeField] private PartnerRoomScreen _partnerRoom;
     [SerializeField] private GuardianSettingsPanel _settings;
+
+    [Header("로비 버튼 자리 (BrushGame/Lobby 메뉴가 버튼 그림·글자와 함께 바꾼다)")]
+    [SerializeField] private StickerSlot _stickerSlot = StickerSlot.StickerBoard;
+    [SerializeField] private BadgeSlot _badgeSlot = BadgeSlot.SpaceMap;
 
     private ScreenBase _current;
     private PlayerProfile _draft = new PlayerProfile();
     private PatientInfo _patient;
     private StickerRecord _newSticker;
-    private List<BadgeInfo> _newBadges = new List<BadgeInfo>();
+    /// <summary>치료 직후 스티커판이면 다음에 지도를 보여준다 (로비에서 연 스티커판은 로비로)</summary>
+    private bool _mapAfterStickers;
 
     private static SaveData Data => SaveStore.Data;
 
@@ -104,6 +119,13 @@ namespace BrushGame
       };
       _lobby.StickersPressed += () =>
       {
+        if (_stickerSlot == StickerSlot.PartnerRoom && _partnerRoom != null)
+        {
+          _partnerRoom.Setup(Data);
+          Show(_partnerRoom);
+          return;
+        }
+        _mapAfterStickers = false;
         _stickers.Setup(Data, null);
         Show(_stickers);
       };
@@ -128,37 +150,59 @@ namespace BrushGame
       };
       _brushing.QuitRequested += ShowLobby;
       _brushing.Completed += OnTreatmentComplete;
+      // 치료 후: 스티커판에서 도장 쾅 → 우주 항해 지도에서 새 발판 켜짐 → 로비
       _complete.Confirmed += () =>
       {
+        _mapAfterStickers = true;
         _stickers.Setup(Data, _newSticker);
         Show(_stickers);
       };
       _stickers.BackPressed += () =>
       {
-        if (_newBadges.Count == 0)
+        if (!_mapAfterStickers)
         {
           ShowLobby();
           return;
         }
-        _badges.Setup(_catalog, Data, _newBadges);
-        _newBadges = new List<BadgeInfo>();
-        Show(_badges);
+        _mapAfterStickers = false;
+        ShowSpaceMap();
       };
+      // 반짝 배지 버튼 자리는 우주 항해 지도가 맡는다 (배지 화면은 되돌릴 수 있게 꺼진 채로 남긴다)
       _lobby.BadgesPressed += () =>
       {
+        if (_badgeSlot == BadgeSlot.SpaceMap)
+        {
+          ShowSpaceMap();
+          return;
+        }
         _badges.Setup(_catalog, Data, null);
         Show(_badges);
       };
+      _spaceMap.BackPressed += () =>
+      {
+        // 데려온 로봇이 첫 양치로 충전됐으면 깨어나는 장면부터 보여준다
+        if (_stickerSlot == StickerSlot.PartnerRoom && _partnerRoom != null && Data.PartnerReadyToWake)
+        {
+          _partnerRoom.Setup(Data);
+          Show(_partnerRoom);
+          return;
+        }
+        ShowLobby();
+      };
       _badges.BackPressed += ShowLobby;
+      if (_partnerRoom != null)
+      {
+        _partnerRoom.BackPressed += ShowLobby;
+      }
 
       Show(_title);
     }
 
-    private ScreenBase[] AllScreens() => new ScreenBase[]
+    private ScreenBase[] AllScreens() => Array.FindAll(new ScreenBase[]
     {
       _title, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _stickers, _badges,
-    };
+      _cameraReady, _loading, _brushing, _complete, _stickers, _spaceMap, _badges, _partnerRoom,
+    }, s => s != null);
 
     private void Show(ScreenBase screen)
     {
@@ -198,11 +242,22 @@ namespace BrushGame
       Show(_ageSelect);
     }
 
+    private void ShowSpaceMap()
+    {
+      _spaceMap.Setup(_catalog, Data);
+      Show(_spaceMap);
+    }
+
     private void ShowLobby()
     {
       var character = _catalog.FindCharacter(Data.profile.characterId);
       var now = DateTime.Now;
       _lobby.Setup(Data, character, _catalog.PatientFor(Data, now), SaveData.SlotAt(now));
+      // 파트너 방 자리면 버튼 글자는 파트너 이름 (이름이 없으면 씬에 적힌 "내 친구" 그대로)
+      if (_stickerSlot == StickerSlot.PartnerRoom && Data.partnerAwake && !string.IsNullOrEmpty(Data.partnerName))
+      {
+        _lobby.SetStickerButtonLabel(Data.partnerName);
+      }
       Show(_lobby);
     }
 
@@ -223,7 +278,8 @@ namespace BrushGame
         Data.curedPatientIds.Add(_patient.id);
       }
       Data.treatmentCount++;
-      _newBadges = BadgeRules.Evaluate(_catalog, Data);
+      // 배지 화면은 지금 열지 않지만, 되돌릴 때를 위해 배지 기록은 계속 쌓아 둔다
+      BadgeRules.Evaluate(_catalog, Data);
       SaveStore.Save();
 
       _complete.Setup(_patient);
