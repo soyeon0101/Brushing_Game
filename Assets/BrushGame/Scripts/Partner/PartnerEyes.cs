@@ -28,6 +28,8 @@ namespace BrushGame
     [SerializeField] private Vector2 _lookRange = new Vector2(0.10f, 0.12f);
     [SerializeField, Range(0f, 1f)] private float _glowAlpha = 0.55f;
 
+    /// <summary>전원: 0 꺼짐(화면 까맣게) → 점 → 가로줄 → 1 눈 뜸 (켜지는 연출용)</summary>
+    [HideInInspector] public float Power = 1f;
     [HideInInspector] public float Open = 1f;
     [HideInInspector] public float Lid;
     [HideInInspector] public float Happy;
@@ -49,20 +51,44 @@ namespace BrushGame
       var h = Mathf.Clamp01(Happy);
       var normal = 1f - Smooth(Mathf.Clamp01(h * 2f));
       var happy = Smooth(Mathf.Clamp01(h * 2f - 1f));
-      Place(_leftEye, _leftGlow, _leftHappy, -1f, ew, eh, gap, cy, r, normal, happy);
-      Place(_rightEye, _rightGlow, _rightHappy, 1f, ew, eh, gap, cy, r, normal, happy);
+
+      // 전원: 꺼짐이면 아무것도 안 보이고, 켜질 때 점 → 가로줄 → 위아래로 열리며 눈이 된다
+      var power = Mathf.Clamp01(Power);
+      var on = power > 0.001f;
+      var dot = ew * 0.2f;
+      var wScale = power < 0.35f ? Mathf.Lerp(0f, dot, power / 0.35f) / ew
+        : power < 0.65f ? Mathf.Lerp(dot, ew, Smooth((power - 0.35f) / 0.3f)) / ew : 1f;
+      var hScale = power < 0.35f ? Mathf.Lerp(0f, dot, power / 0.35f) / eh
+        : power < 0.65f ? dot * 0.5f / eh : Mathf.Lerp(dot * 0.5f / eh, 1f, Smooth((power - 0.65f) / 0.35f));
+      if (power >= 1f)
+      {
+        wScale = hScale = 1f;
+      }
+      foreach (var img in new[] { _leftEye, _rightEye, _leftGlow, _rightGlow, _leftHappy, _rightHappy })
+      {
+        img.gameObject.SetActive(on);
+      }
+      if (!on)
+      {
+        return;
+      }
+      Place(_leftEye, _leftGlow, _leftHappy, -1f, ew, eh, gap, cy, r, normal, happy, wScale, hScale, power >= 1f);
+      Place(_rightEye, _rightGlow, _rightHappy, 1f, ew, eh, gap, cy, r, normal, happy, wScale, hScale, power >= 1f);
     }
 
-    private void Place(Image eye, Image glow, Image happyEye, float side, float ew, float eh, float gap, float cy, Rect r, float normal, float happy)
+    private void Place(Image eye, Image glow, Image happyEye, float side, float ew, float eh, float gap, float cy, Rect r, float normal, float happy,
+      float wScale, float hScale, bool fullyOn)
     {
       var cx = side * (gap / 2f + ew / 2f) + Look.x * r.width * _lookRange.x;
+      eh *= hScale;
+      ew *= wScale;
 
       // 위아래 끝을 정한다: 감을수록 가운데로 납작, 졸릴수록 윗눈꺼풀이 내려온다
       var h = Mathf.Max(2f, eh * Mathf.Clamp01(Open) * normal);
       var top = cy + h / 2f;
       var bottom = cy - h / 2f;
       top -= (top - bottom) * Mathf.Clamp01(Lid);
-      if (top - bottom < 4f && normal > 0.5f)
+      if (top - bottom < 4f && normal > 0.5f && fullyOn)
       {
         // 다 감으면 아래쪽에 가는 줄 (표정이 바뀌는 중에는 줄도 남기지 않는다)
         bottom = cy - eh * 0.25f - 2f;

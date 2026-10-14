@@ -178,7 +178,17 @@ namespace BrushGame
         _badges.Setup(_catalog, Data, null);
         Show(_badges);
       };
-      _spaceMap.BackPressed += ShowLobby;
+      _spaceMap.BackPressed += () =>
+      {
+        // 데려온 로봇이 첫 양치로 충전됐으면 깨어나는 장면부터 보여준다
+        if (_stickerSlot == StickerSlot.PartnerRoom && _partnerRoom != null && Data.PartnerReadyToWake)
+        {
+          _partnerRoom.Setup(Data);
+          Show(_partnerRoom);
+          return;
+        }
+        ShowLobby();
+      };
       _badges.BackPressed += ShowLobby;
       if (_partnerRoom != null)
       {
@@ -243,6 +253,11 @@ namespace BrushGame
       var character = _catalog.FindCharacter(Data.profile.characterId);
       var now = DateTime.Now;
       _lobby.Setup(Data, character, _catalog.PatientFor(Data, now), SaveData.SlotAt(now));
+      // 파트너 방 자리면 버튼 글자는 파트너 이름 (이름이 없으면 씬에 적힌 "내 친구" 그대로)
+      if (_stickerSlot == StickerSlot.PartnerRoom && Data.partnerAwake && !string.IsNullOrEmpty(Data.partnerName))
+      {
+        _lobby.SetStickerButtonLabel(Data.partnerName);
+      }
       Show(_lobby);
     }
 

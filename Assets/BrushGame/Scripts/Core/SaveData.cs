@@ -77,6 +77,15 @@ namespace BrushGame
 
     [Tooltip("파트너에게 지금까지 준 밥 수")]
     public int partnerFedCount;
+    [Tooltip("창고에서 꺼진 로봇을 데려왔는지")]
+    public bool partnerBrought;
+    [Tooltip("첫 양치로 충전돼 깨어났는지")]
+    public bool partnerAwake;
+    [Tooltip("아이가 지어 준 파트너 이름")]
+    public string partnerName = "";
+
+    /// <summary>데려왔고, 양치 도장이 하나라도 있는데 아직 안 깨어났으면 깨우는 장면을 보여줄 차례</summary>
+    public bool PartnerReadyToWake => partnerBrought && !partnerAwake && stickers.Count > 0;
 
     /// <summary>파트너에게 줄 수 있는 밥 = 받은 도장 수 - 준 밥 수 (안 줘도 줄어들거나 사라지지 않는다)</summary>
     public int PartnerMealsLeft => Mathf.Max(0, stickers.Count - partnerFedCount);

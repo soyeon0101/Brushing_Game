@@ -1690,6 +1690,27 @@ namespace BrushGame.EditorTools
       var screenProps = Stretch("ScreenProps", screen);
       var headProps = Node("HeadProps", visual, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.82f));
 
+      // 머리 위 배터리 (충전 기다림·충전 중에만). 채움은 배터리 안쪽에서 가로로 늘어난다
+      var battery = Node("Battery", visual, new Vector2(0f, 20f), new Vector2(180f, 140f), new Vector2(0.5f, 1f));
+      battery.pivot = new Vector2(0.5f, 0f);
+      var batteryArt = Img("Art", battery, Vector2.zero, Vector2.zero, Color.white, LoadArt(PartnerArtDir, "prop_battery") ?? _rounded);
+      Fit(batteryArt.rectTransform);
+      batteryArt.preserveAspect = true;
+      var batteryFill = Img("Fill", battery, new Vector2(28f, 0f), new Vector2(114f, 66f), new Color(1f, 0.45f, 0.45f), null, new Vector2(0f, 0.5f));
+      batteryFill.rectTransform.pivot = new Vector2(0f, 0.5f);
+      battery.gameObject.SetActive(false);
+
+      // 창고 어둠: 로봇 자리만 밝은 원형 그라데이션 + 위에서 내려오는 빛줄기. 데려오면 서서히 사라진다
+      var darkness = Node("Darkness", stage, Vector2.zero, Vector2.zero);
+      Fit(darkness);
+      var darkGroup = darkness.gameObject.AddComponent<CanvasGroup>();
+      darkGroup.blocksRaycasts = false;
+      darkGroup.interactable = false;
+      Img("Spot", darkness, new Vector2(0f, floorY + 230f), new Vector2(2600f, 2600f), Color.white, LoadArt(PartnerArtDir, "fx_spotlight"), bottom);
+      var beam = Img("Beam", darkness, new Vector2(0f, floorY - 20f), new Vector2(520f, 1000f), Color.white, LoadArt(PartnerArtDir, "fx_beam"), bottom);
+      beam.rectTransform.pivot = bottom;
+      darkness.gameObject.SetActive(false);
+
       var eyes = screen.gameObject.AddComponent<PartnerEyes>();
       var eso = new SerializedObject(eyes);
       eso.FindProperty("_screen").objectReferenceValue = screen;
@@ -1738,7 +1759,46 @@ namespace BrushGame.EditorTools
       var badge = Img("Count", feed.transform, new Vector2(98f, 68f), new Vector2(84f, 84f), new Color(1f, 0.45f, 0.65f), _circle);
       var count = Txt("Number", badge.transform, Vector2.zero, new Vector2(84f, 84f), "0", 46, Color.white, bold: true);
       var hint = Txt("NoMealHint", c, new Vector2(-190f, 40f), new Vector2(380f, 56f), "양치하면 밥이 생겨요", 30, Dark, bold: true, anchor: bottomRight);
+
+      // 첫 만남: 데려가기 버튼, 이름 짓기 창, 위쪽 안내 말풍선 (말풍선이 가장 위)
+      var bring = Btn("BringButton", c, new Vector2(0f, -560f), new Vector2(600f, 150f), "데려가기", Green, Color.white, 56);
+      bring.gameObject.SetActive(false);
+      var namePanel = Stretch("NamePanel", c);
+      namePanel.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.35f);
+      var nameBox = Img("Box", namePanel, new Vector2(0f, -40f), new Vector2(860f, 520f), Color.white, _rounded);
+      Txt("Title", nameBox.transform, new Vector2(0f, 170f), new Vector2(800f, 90f), "이름을 지어 줘!", 54, Dark, bold: true);
+      var nameInput = InputBox("NameInput", nameBox.transform, new Vector2(0f, 20f), new Vector2(700f, 140f), $"이름 ({PartnerRoomScreen.NameMaxLength}글자까지)");
+      var nameOk = Btn("NameOk", nameBox.transform, new Vector2(0f, -170f), new Vector2(420f, 130f), "좋아!", Primary, Color.white, 52);
+      namePanel.gameObject.SetActive(false);
+      var bubble = Img("Bubble", c, new Vector2(0f, 600f), new Vector2(900f, 210f), new Color(1f, 1f, 1f, 0.94f), _rounded);
+      var bubbleText = Txt("Text", bubble.transform, Vector2.zero, new Vector2(860f, 190f), "", 46, Dark, bold: true);
+      bubble.gameObject.SetActive(false);
+
+      // 개발용 버튼 (에디터·Development Build에서만 켜진다): 첫 만남 다시 보기. 뒤로 버튼 옆 맨 윗줄 (말풍선을 가리지 않게)
+      var dev = Node("DevPanel", c, new Vector2(90f, 850f), new Vector2(860f, 90f));
+      string[] devLabels = { "창고부터", "깨우기", "이름 다시", "밥 +3" };
+      var devButtons = new Button[devLabels.Length];
+      for (var i = 0; i < devLabels.Length; i++)
+      {
+        devButtons[i] = Btn($"Dev{i}", dev, new Vector2(215f * (i - 1.5f), 0f), new Vector2(200f, 80f), devLabels[i], new Color(0.2f, 0.2f, 0.25f, 0.85f), Color.white, 30);
+      }
+
       var screenComp = root.gameObject.AddComponent<PartnerRoomScreen>();
+      SetRef(screenComp, "_devPanel", dev.gameObject);
+      SetRef(screenComp, "_devStorage", devButtons[0]);
+      SetRef(screenComp, "_devWake", devButtons[1]);
+      SetRef(screenComp, "_devRename", devButtons[2]);
+      SetRef(screenComp, "_devMeals", devButtons[3]);
+      SetRef(screenComp, "_darkness", darkGroup);
+      SetRef(screenComp, "_bubble", bubble.gameObject);
+      SetRef(screenComp, "_bubbleText", bubbleText);
+      SetRef(screenComp, "_bringButton", bring);
+      SetRef(screenComp, "_battery", battery.gameObject);
+      SetRef(screenComp, "_batteryFill", batteryFill.rectTransform);
+      SetRef(screenComp, "_batteryFillImage", batteryFill);
+      SetRef(screenComp, "_namePanel", namePanel.gameObject);
+      SetRef(screenComp, "_nameInput", nameInput);
+      SetRef(screenComp, "_nameOkButton", nameOk);
       SetRef(screenComp, "_robot", robot);
       SetRef(screenComp, "_backButton", back);
       SetRef(screenComp, "_feedButton", feed);

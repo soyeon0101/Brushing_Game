@@ -64,6 +64,16 @@ namespace BrushGame
       ArtSlot.Apply(_patientPortrait, patient.Portrait);
     }
 
+    /// <summary>스티커판 자리 버튼의 글자 (파트너 방일 때 파트너 이름)</summary>
+    public void SetStickerButtonLabel(string label)
+    {
+      var text = _stickerButton.GetComponentInChildren<Text>(true);
+      if (text != null)
+      {
+        text.text = label;
+      }
+    }
+
     private void Awake()
     {
       _treatButton.onClick.AddListener(OnTreat);

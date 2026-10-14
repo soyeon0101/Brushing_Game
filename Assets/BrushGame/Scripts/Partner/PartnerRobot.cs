@@ -69,6 +69,8 @@ namespace BrushGame
     private float _tilt;
     private float _squash;
     private float _drowsy;     // 0 평소 ~ 1 잠듦 (떠 있는 높이가 낮아지고 둥실 속도가 느려진다)
+    private float _hover = 1f; // 0 꺼져서 바닥에 내려앉음 ~ 1 떠 있음
+    private bool _off;         // 꺼진 로봇 (첫 만남 전): 움직이지 않고 화면이 까맣다
     private bool _asleep;
     private bool _eyesBusy;    // 표정 연출 중에는 자동 깜빡임을 쉰다
     private float _awakeSec;
@@ -91,8 +93,61 @@ namespace BrushGame
     private void OnEnable()
     {
       ResetState();
+      if (!_off)
+      {
+        StartLife();
+      }
+    }
+
+    private void StartLife()
+    {
       _brain = StartCoroutine(Brain());
       _blinker = StartCoroutine(Blinker());
+    }
+
+    /// <summary>꺼진 로봇으로 둔다 (창고, 충전 기다리는 중): 화면 까맣고 바닥에 내려앉아 가만히</summary>
+    public void SetPoweredOff()
+    {
+      _off = true;
+      StopAllCoroutines();
+      ClearProps();
+      _eyes.Power = 0f;
+      _hover = 0f;
+      _tilt = 4f;
+      _x = 0f;
+      _depth = 0.3f;
+    }
+
+    /// <summary>
+    ///   깨어나기: 화면에 점 → 가로줄 → 눈이 열리며 통 튀고, 바닥에서 떠오른 뒤 두리번 → 아이를 보고 ^^.
+    ///   끝나면 평소처럼 돌아다닌다.
+    /// </summary>
+    public IEnumerator PowerOn()
+    {
+      _off = false;
+      _eyesBusy = true;
+      _eyes.Open = 1f;
+      yield return Tween(0.5f, k => _eyes.Power = 0.35f * k);
+      yield return Wait(0.25f);
+      yield return Tween(0.45f, k => _eyes.Power = 0.35f + 0.3f * Smooth(k));
+      yield return Wait(0.15f);
+      yield return Tween(0.35f, k => _eyes.Power = 0.65f + 0.35f * Smooth(k));
+      // 한 번 크게 떴다가 자리 잡기
+      yield return Tween(0.12f, k => _eyes.Open = 1f - 0.25f * k);
+      yield return Tween(0.15f, k => _eyes.Open = 0.75f + 0.25f * k);
+      // 바닥에서 떠오르며 자세를 편다
+      yield return Tween(0.7f, k =>
+      {
+        _hover = Smooth(k);
+        _tilt = Mathf.Lerp(4f, 0f, k);
+        _squash = -0.05f * Mathf.Sin(k * Mathf.PI);
+      });
+      _squash = 0f;
+      yield return Blink();
+      yield return LookAround();
+      _eyesBusy = false;
+      yield return Cheer();
+      StartLife();
     }
 
     private void OnDisable()
@@ -104,6 +159,9 @@ namespace BrushGame
     public void ResetState()
     {
       IsEating = false;
+      _off = false;
+      _hover = 1f;
+      _eyes.Power = 1f;
       _asleep = false;
       _eyesBusy = false;
       _awakeSec = 0f;
@@ -133,7 +191,7 @@ namespace BrushGame
       // 둥실둥실: 졸릴수록 낮고 느리게
       var speed = Mathf.Lerp(_bobSpeed, _bobSpeed * 0.4f, _drowsy);
       var bob = Mathf.Sin(_time * Mathf.PI * 2f * speed) * Mathf.Lerp(_bobAmount, _bobAmount * 0.3f, _drowsy);
-      var lift = Mathf.Lerp(_hoverHeight, _hoverHeight * 0.25f, _drowsy) + bob + _lift;
+      var lift = (Mathf.Lerp(_hoverHeight, _hoverHeight * 0.25f, _drowsy) + bob) * _hover + _lift;
       // 원근: 뒤로 갈수록 바닥 위쪽으로, 작게, 좌우 폭도 좁게
       var persp = Mathf.Lerp(1f, _backScale, _depth);
       var x = _x * Mathf.Lerp(1f, _backRoam, _depth);
@@ -451,7 +509,19 @@ namespace BrushGame
 
     private void OnTapped()
     {
-      if (IsEating)
+      if (IsEating || _off)
+      {
+        return;
+      }
+      var wasAsleep = _asleep;
+      Interrupt();
+      _brain = StartCoroutine(TapThenResume(wasAsleep ? WakeUp() : Cheer()));
+    }
+
+    /// <summary>기뻐하기 (이름을 받았을 때 등): ^^ 통통 + 폭죽</summary>
+    public void Celebrate()
+    {
+      if (IsEating || _off)
       {
         return;
       }
@@ -463,7 +533,7 @@ namespace BrushGame
     /// <summary>밥 주기: 하던 걸 멈추고 (자고 있으면 깨서) 밥을 먹는다</summary>
     public void Feed()
     {
-      if (IsEating)
+      if (IsEating || _off)
       {
         return;
       }
