@@ -116,3 +116,18 @@ public interface IBrushInput
 
 - Asset Loader Type → `StreamingAssets`
 - Android: `libstdc++_shared.so`를 APK에 포함 (없으면 `DllNotFoundException`). 가장 쉬운 방법은 `Assets/Plugins/Android`에 넣기. 자세한 건 저장소 README "For Android"
+
+## 11. 바꾼 화면 되돌리기 (Unity 메뉴 한 번)
+
+팀원이 기존 화면을 다른 기능으로 바꿀 때는 지우지 않고 꺼 두며, 아래 메뉴로 언제든 되돌린다.
+MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실행하면 된다 (Main 씬이 열려 있어야 함, 실행하면 씬이 저장된다).
+메뉴는 GameFlow의 "로비 버튼 자리" 스위치와 로비 버튼의 그림·글자를 함께 바꾼다.
+
+| 바꾼 것 | 되돌리기 메뉴 | 다시 바꾸기 메뉴 | 되돌린 뒤 확인 |
+|---|---|---|---|
+| 로비 **반짝 배지** 버튼 → 우주 항해 지도 | `BrushGame/Restore/Badge Button - Badge Box` | `BrushGame/Lobby/Badge Button - Space Map` | 로비 버튼이 "반짝 배지"(메달 그림), 누르면 배지함 |
+| 로비 **스티커판** 버튼 → 파트너 방 (로봇 "내 친구") | `BrushGame/Restore/Sticker Button - Sticker Board` | `BrushGame/Lobby/Sticker Button - Partner Room` | 로비 버튼이 "스티커판", 누르면 칭찬 스티커판 |
+
+- 꺼 둔 화면(배지함, 스티커판)과 그 기록 계산은 그대로 남아 있어서, 되돌리면 그동안의 기록도 보인다.
+- 치료 후 흐름(완료 → 스티커판 → 우주 항해 지도 → 로비)은 위 스위치와 상관없이 그대로다.
+- 화면을 새로 만들 때: `BrushGame/Add Space Map To Scene`, `BrushGame/Add Partner Room To Scene` (이미 있으면 다시 만든다).

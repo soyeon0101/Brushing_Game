@@ -75,6 +75,12 @@ namespace BrushGame
     /// <summary>우주 항해 지도의 켜진 발판 수 = 받은 도장 수 (같은 날 같은 끼니는 한 번만이라 규칙이 같다)</summary>
     public int TotalLitPads => stickers.Count;
 
+    [Tooltip("파트너에게 지금까지 준 밥 수")]
+    public int partnerFedCount;
+
+    /// <summary>파트너에게 줄 수 있는 밥 = 받은 도장 수 - 준 밥 수 (안 줘도 줄어들거나 사라지지 않는다)</summary>
+    public int PartnerMealsLeft => Mathf.Max(0, stickers.Count - partnerFedCount);
+
     /// <summary>닉네임까지 정해야 프로필이 만들어진 것으로 본다</summary>
     public bool HasProfile => profile != null && !string.IsNullOrEmpty(profile.nickname);
 

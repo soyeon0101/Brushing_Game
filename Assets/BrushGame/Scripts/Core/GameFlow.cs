@@ -11,6 +11,12 @@ namespace BrushGame
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
+    /// <summary>로비 스티커판 버튼 자리가 여는 화면 (BrushGame/Lobby 메뉴로 바꾸고 되돌린다)</summary>
+    public enum StickerSlot { StickerBoard, PartnerRoom }
+
+    /// <summary>로비 반짝 배지 버튼 자리가 여는 화면</summary>
+    public enum BadgeSlot { BadgeBox, SpaceMap }
+
     [SerializeField] private GameCatalog _catalog;
     [Tooltip("카메라 준비·양치 화면에서만 보이는 카메라 영상")]
     [SerializeField] private GameObject _cameraFeed;
@@ -30,9 +36,15 @@ namespace BrushGame
     [SerializeField] private StickerScreen _stickers;
     [Tooltip("우주 항해 지도. 로비의 반짝 배지 버튼과 치료 후 스티커판 다음에 열린다")]
     [SerializeField] private SpaceMapScreen _spaceMap;
-    [Tooltip("예전 반짝 배지함. 우주 항해 지도로 바꾸면서 열지 않지만 되돌릴 수 있게 씬에 남겨 둔다 (꺼진 채로)")]
+    [Tooltip("반짝 배지함. 배지 버튼 자리를 지도로 바꿔도 되돌릴 수 있게 씬에 남겨 둔다")]
     [SerializeField] private BadgeScreen _badges;
+    [Tooltip("파트너 방 (로봇 친구)")]
+    [SerializeField] private PartnerRoomScreen _partnerRoom;
     [SerializeField] private GuardianSettingsPanel _settings;
+
+    [Header("로비 버튼 자리 (BrushGame/Lobby 메뉴가 버튼 그림·글자와 함께 바꾼다)")]
+    [SerializeField] private StickerSlot _stickerSlot = StickerSlot.StickerBoard;
+    [SerializeField] private BadgeSlot _badgeSlot = BadgeSlot.SpaceMap;
 
     private ScreenBase _current;
     private PlayerProfile _draft = new PlayerProfile();
@@ -107,6 +119,12 @@ namespace BrushGame
       };
       _lobby.StickersPressed += () =>
       {
+        if (_stickerSlot == StickerSlot.PartnerRoom && _partnerRoom != null)
+        {
+          _partnerRoom.Setup(Data);
+          Show(_partnerRoom);
+          return;
+        }
         _mapAfterStickers = false;
         _stickers.Setup(Data, null);
         Show(_stickers);
@@ -150,18 +168,31 @@ namespace BrushGame
         ShowSpaceMap();
       };
       // 반짝 배지 버튼 자리는 우주 항해 지도가 맡는다 (배지 화면은 되돌릴 수 있게 꺼진 채로 남긴다)
-      _lobby.BadgesPressed += ShowSpaceMap;
+      _lobby.BadgesPressed += () =>
+      {
+        if (_badgeSlot == BadgeSlot.SpaceMap)
+        {
+          ShowSpaceMap();
+          return;
+        }
+        _badges.Setup(_catalog, Data, null);
+        Show(_badges);
+      };
       _spaceMap.BackPressed += ShowLobby;
       _badges.BackPressed += ShowLobby;
+      if (_partnerRoom != null)
+      {
+        _partnerRoom.BackPressed += ShowLobby;
+      }
 
       Show(_title);
     }
 
-    private ScreenBase[] AllScreens() => new ScreenBase[]
+    private ScreenBase[] AllScreens() => Array.FindAll(new ScreenBase[]
     {
       _title, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _stickers, _spaceMap, _badges,
-    };
+      _cameraReady, _loading, _brushing, _complete, _stickers, _spaceMap, _badges, _partnerRoom,
+    }, s => s != null);
 
     private void Show(ScreenBase screen)
     {
