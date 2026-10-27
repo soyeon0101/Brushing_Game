@@ -27,11 +27,12 @@ namespace BrushGame
       }
     }
 
-    /// <summary>프로필과 기록을 모두 지운다 (보호자 설정의 초기화)</summary>
+    /// <summary>계정, 프로필, 기록, 양치 사진을 모두 지운다 (보호자 설정의 초기화)</summary>
     public static void ResetAll()
     {
       _data = new SaveData();
       Save();
+      PhotoStore.DeleteAll();
     }
 
     private static SaveData Load()

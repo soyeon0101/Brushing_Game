@@ -42,6 +42,11 @@ namespace BrushGame
     [Tooltip("모든 화면이 같이 쓰는 카메라 영상. 양치 중에만 작은 창으로 옮긴다")]
     [SerializeField] private RectTransform _cameraFeed;
     [SerializeField] private RectTransform _cameraWindow;
+    [Tooltip("구역마다 양치하는 모습을 한 장씩 찍는다 (없으면 안 찍는다)")]
+    [SerializeField] private PhotoBooth _photoBooth;
+    [Tooltip("구역 진행도가 이만큼 찼을 때 사진을 찍는다")]
+    [SerializeField, Range(0.05f, 0.95f)] private float _photoAt = 0.5f;
+    [SerializeField] private string _photoLine = "찰칵! 멋진 양치 모습!";
 
     [Header("HUD")]
     [Tooltip("지금 구역의 남은 양치 시간 (닦는 동안에만 줄어든다)")]
@@ -112,6 +117,7 @@ namespace BrushGame
     [SerializeField, Min(0f)] private float _finishHoldSec = 1.2f;
 
     private readonly float[] _progress = new float[4];
+    private readonly bool[] _photoTaken = new bool[4];
     private int _zoneSeconds = 25;
     private int _zone;
     private Phase _phase;
@@ -134,6 +140,9 @@ namespace BrushGame
 
     public event Action Completed;
     public event Action QuitRequested;
+
+    /// <summary>이번 양치에서 찍은 사진 (구역 순서, 못 찍은 칸은 null)</summary>
+    public Texture2D[] Photos => _photoBooth != null ? _photoBooth.Photos : new Texture2D[PhotoBooth.Count];
 
     private string ZoneLine => $"{ZoneNames[_zone]}를 닦아줘!";
     private bool IsUpper(int zone) => zone < 2;
@@ -167,7 +176,12 @@ namespace BrushGame
       for (var i = 0; i < _zones.Length; i++)
       {
         _progress[i] = 0f;
+        _photoTaken[i] = false;
         _zones[i].ResetDirty();
+      }
+      if (_photoBooth != null)
+      {
+        _photoBooth.Begin();
       }
       _paused = false;
       _handLostT = 0f;
@@ -355,6 +369,17 @@ namespace BrushGame
       if (visible)
       {
         UpdateLine(brushing, tooFast, idle);
+      }
+
+      // 닦는 중인 손이 보일 때 구역마다 한 장 (안 찍혀도 다시 시도하지 않고 다음 구역으로)
+      if (!_photoTaken[_zone] && brushing && _progress[_zone] >= _photoAt)
+      {
+        _photoTaken[_zone] = true;
+        if (_photoBooth != null && _photoBooth.Capture(_zone))
+        {
+          ShowGuide(_photoLine);
+          _nextLineTime = Time.time + _lineSec;
+        }
       }
 
       if (_progress[_zone] >= 1f)

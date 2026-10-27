@@ -17,6 +17,20 @@ namespace BrushGame
     public string nickname;
   }
 
+  /// <summary>보호자 회원가입 정보와 동의 기록. 서버 없이 이 기기 저장 파일에만 남는다</summary>
+  [Serializable]
+  public class GuardianAccount
+  {
+    public string guardianName;
+    public string email;
+    [Tooltip("[필수] 개인정보 수집·이용 동의")]
+    public bool agreedPrivacy;
+    [Tooltip("[필수] 카메라 권한 이용 동의 (손 인식 + 양치 사진 촬영, 사진은 기기에만 저장)")]
+    public bool agreedCamera;
+    [Tooltip("동의한 시각 (yyyy-MM-dd HH:mm)")]
+    public string agreedAt;
+  }
+
   [Serializable]
   public class StickerRecord
   {
@@ -63,8 +77,11 @@ namespace BrushGame
   public class SaveData
   {
     public int version = 1;
+    public GuardianAccount account = new GuardianAccount();
     public PlayerProfile profile = new PlayerProfile();
     public GuardianSettings settings = new GuardianSettings();
+    [Tooltip("양치 사진 액자에서 마지막으로 고른 테두리")]
+    public int photoFrame;
     public List<StickerRecord> stickers = new List<StickerRecord>();
     public List<string> curedPatientIds = new List<string>();
     public List<string> badgeIds = new List<string>();
@@ -92,6 +109,9 @@ namespace BrushGame
 
     /// <summary>닉네임까지 정해야 프로필이 만들어진 것으로 본다</summary>
     public bool HasProfile => profile != null && !string.IsNullOrEmpty(profile.nickname);
+
+    /// <summary>필수 동의 두 가지를 하고 보호자 회원가입까지 마쳤는지 (예전 저장 파일은 false라 동의부터 다시 받는다)</summary>
+    public bool HasAccount => account != null && account.agreedPrivacy && account.agreedCamera && !string.IsNullOrEmpty(account.guardianName);
 
     public static string DateKey(DateTime time) => time.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

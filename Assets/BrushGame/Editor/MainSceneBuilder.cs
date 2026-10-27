@@ -61,6 +61,9 @@ namespace BrushGame.EditorTools
 
     private static Sprite _circle;
     private static Sprite _rounded;
+    private static Sprite _star;
+    private static Sprite _heart;
+    private static Sprite _check;
     private static Font _font;
 
     [MenuItem("BrushGame/Build Main Scene")]
@@ -122,6 +125,8 @@ namespace BrushGame.EditorTools
 
       var screens = Stretch("Screens", root);
       var title = BuildTitle(screens, catalog);
+      var consent = BuildConsent(screens);
+      var signup = BuildSignup(screens);
       var age = BuildAgeSelect(screens);
       var character = BuildCharacterSelect(screens);
       var nickname = BuildNickname(screens);
@@ -132,6 +137,8 @@ namespace BrushGame.EditorTools
       var loading = BuildLoading(screens);
       var brushing = BuildBrushing(screens, hub, (RectTransform)feed.transform);
       var complete = BuildComplete(screens);
+      var photoFrame = BuildPhotoFrame(screens);
+      BuildPhotoBooth(brushing, feed);
       var stickers = BuildStickers(screens);
       var spaceMap = BuildSpaceMap(screens);
       var partnerRoom = BuildPartnerRoom(screens);
@@ -145,6 +152,8 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_catalog", catalog);
       SetRef(flow, "_cameraFeed", feed);
       SetRef(flow, "_title", title);
+      SetRef(flow, "_consent", consent);
+      SetRef(flow, "_signup", signup);
       SetRef(flow, "_ageSelect", age);
       SetRef(flow, "_characterSelect", character);
       SetRef(flow, "_nickname", nickname);
@@ -155,6 +164,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_loading", loading);
       SetRef(flow, "_brushing", brushing);
       SetRef(flow, "_complete", complete);
+      SetRef(flow, "_photoFrame", photoFrame);
       SetRef(flow, "_stickers", stickers);
       SetRef(flow, "_spaceMap", spaceMap);
       SetRef(flow, "_partnerRoom", partnerRoom);
@@ -370,6 +380,62 @@ namespace BrushGame.EditorTools
       Debug.Log("[BrushGame] 파트너 방을 만들고 로비 스티커판 버튼 자리를 파트너 방으로 바꿨습니다.");
     }
 
+    /// <summary>
+    ///   열려 있는 Main 씬에 보호자 동의·회원가입 화면(타이틀 다음), 양치 사진 액자(완료 다음),
+    ///   양치 중 사진 찍기(카메라 작은 창의 번쩍임)를 만들어 연결하고 저장한다. 이미 있으면 다시 만든다.
+    ///   양치 화면은 다시 만들지 않으므로 손으로 고친 내용은 그대로다.
+    /// </summary>
+    [MenuItem("BrushGame/Add Signup And Photo Frame To Scene")]
+    public static void AddSignupAndPhotoMenu()
+    {
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var title = Object.FindFirstObjectByType<TitleScreen>(FindObjectsInactive.Include);
+      var complete = Object.FindFirstObjectByType<CompleteScreen>(FindObjectsInactive.Include);
+      var brushing = Object.FindFirstObjectByType<BrushingScreen>(FindObjectsInactive.Include);
+      var feed = flow != null ? new SerializedObject(flow).FindProperty("_cameraFeed").objectReferenceValue as GameObject : null;
+      if (flow == null || title == null || complete == null || brushing == null || feed == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+
+      void Replace<T>(string flowField, Transform after, Func<Transform, T> build) where T : ScreenBase
+      {
+        var old = Object.FindFirstObjectByType<T>(FindObjectsInactive.Include);
+        if (old != null)
+        {
+          Undo.DestroyObjectImmediate(old.gameObject);
+        }
+        var screen = build(after.parent);
+        Undo.RegisterCreatedObjectUndo(screen.gameObject, $"Add {typeof(T).Name}");
+        screen.transform.SetSiblingIndex(after.GetSiblingIndex() + 1);
+        screen.gameObject.SetActive(false);
+        SetRef(flow, flowField, screen);
+        FontRoles.ApplyAll(screen.transform);
+        UiSkin.ApplyAll(screen.transform);
+      }
+
+      Replace("_signup", title.transform, BuildSignup);
+      Replace("_consent", title.transform, BuildConsent);
+      Replace("_photoFrame", complete.transform, BuildPhotoFrame);
+      BuildPhotoBooth(brushing, feed);
+
+      // 완료 화면 버튼은 이제 사진 액자로 간다
+      var next = (Button)new SerializedObject(complete).FindProperty("_nextButton").objectReferenceValue;
+      var label = next != null ? next.GetComponentInChildren<Text>(true) : null;
+      if (label != null)
+      {
+        Undo.RecordObject(label, "Complete Label");
+        label.text = CompleteNextLabel;
+      }
+
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 보호자 동의·회원가입, 양치 사진 액자를 만들고 씬을 저장했습니다.");
+    }
+
     // ---------- 로비 버튼 자리 바꾸기 / 되돌리기 (팀원 PC에서도 MCP 메뉴 실행 한 번으로) ----------
 
     [MenuItem("BrushGame/Lobby/Sticker Button - Partner Room")]
@@ -446,7 +512,99 @@ namespace BrushGame.EditorTools
     {
       _circle = LoadOrCreateSprite("Circle.png", 256, 128f, Vector4.zero);
       _rounded = LoadOrCreateSprite("Rounded.png", 128, 40f, new Vector4(44, 44, 44, 44));
+      _star = LoadOrCreateShape("Star.png", InStar);
+      _heart = LoadOrCreateShape("Heart.png", InHeart);
+      _check = LoadOrCreateShape("Check.png", InCheck);
       _font = LoadFont();
+    }
+
+    // 장식 모양 (u, v는 0~1, v는 아래가 0)
+    private static bool InStar(float u, float v)
+    {
+      var inside = false;
+      const int points = 10;
+      for (int i = 0, j = points - 1; i < points; j = i++)
+      {
+        var a = StarVertex(i);
+        var b = StarVertex(j);
+        if ((a.y > v) != (b.y > v) && u < (b.x - a.x) * (v - a.y) / (b.y - a.y) + a.x)
+        {
+          inside = !inside;
+        }
+      }
+      return inside;
+    }
+
+    private static Vector2 StarVertex(int i)
+    {
+      var r = i % 2 == 0 ? 0.49f : 0.22f;
+      var angle = Mathf.PI * 0.5f + i * Mathf.PI / 5f;
+      return new Vector2(0.5f + r * Mathf.Cos(angle), 0.47f + r * Mathf.Sin(angle));
+    }
+
+    private static bool InHeart(float u, float v)
+    {
+      var x = (u - 0.5f) * 2.5f;
+      var y = (v - 0.44f) * 2.5f;
+      var k = x * x + y * y - 1f;
+      return k * k * k - x * x * y * y * y <= 0f;
+    }
+
+    private static bool InCheck(float u, float v)
+    {
+      var p = new Vector2(u, v);
+      return Mathf.Min(SegmentDistance(p, new Vector2(0.18f, 0.52f), new Vector2(0.42f, 0.28f)),
+        SegmentDistance(p, new Vector2(0.42f, 0.28f), new Vector2(0.82f, 0.74f))) < 0.085f;
+    }
+
+    private static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
+    {
+      var ab = b - a;
+      var t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+      return Vector2.Distance(p, a + ab * t);
+    }
+
+    /// <summary>모양 함수로 흰색 투명 배경 그림을 만든다 (4x4 샘플로 가장자리를 부드럽게)</summary>
+    private static Sprite LoadOrCreateShape(string file, Func<float, float, bool> inside, int size = 256)
+    {
+      var path = $"{PlaceholderDir}/{file}";
+      if (!File.Exists(path))
+      {
+        Directory.CreateDirectory(PlaceholderDir);
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var px = new Color32[size * size];
+        for (var y = 0; y < size; y++)
+        {
+          for (var x = 0; x < size; x++)
+          {
+            var hits = 0;
+            for (var sy = 0; sy < 4; sy++)
+            {
+              for (var sx = 0; sx < 4; sx++)
+              {
+                if (inside((x + (sx + 0.5f) / 4f) / size, (y + (sy + 0.5f) / 4f) / size))
+                {
+                  hits++;
+                }
+              }
+            }
+            px[y * size + x] = new Color32(255, 255, 255, (byte)(hits * 255 / 16));
+          }
+        }
+        tex.SetPixels32(px);
+        tex.Apply();
+        File.WriteAllBytes(path, tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+        var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.alphaIsTransparency = true;
+        importer.mipmapEnabled = false;
+        importer.SaveAndReimport();
+      }
+      return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
 
     private static GameCatalog LoadOrCreateCatalog()
@@ -1359,7 +1517,7 @@ namespace BrushGame.EditorTools
       Txt("AfterLabel", c, new Vector2(250f, 30f), new Vector2(400f, 60f), "치료 후", 40, Grey);
       var bubble = Img("Bubble", c, new Vector2(0f, -230f), new Vector2(900f, 200f), Lavender, _rounded);
       var thanks = Txt("Thanks", bubble.transform, Vector2.zero, new Vector2(840f, 180f), "", 46, Dark, bold: true);
-      var next = Btn("NextButton", c, new Vector2(0f, -700f), new Vector2(760f, 160f), "스티커 받기", Green, Color.white, 56);
+      var next = Btn("NextButton", c, new Vector2(0f, -700f), new Vector2(760f, 160f), CompleteNextLabel, Green, Color.white, 56);
 
       var screen = root.gameObject.AddComponent<CompleteScreen>();
       SetRef(screen, "_before", before);
@@ -1367,6 +1525,417 @@ namespace BrushGame.EditorTools
       SetRef(screen, "_thanks", thanks);
       SetRef(screen, "_nextButton", next);
       return screen;
+    }
+
+    // ---------- 보호자 동의 · 회원가입 ----------
+
+    private const string PrivacyTerms =
+      "- 수집 항목: 보호자 이름과 이메일, 아이 나이와 닉네임, 양치 기록\n" +
+      "- 이용 목적: 회원 확인, 양치 기록과 칭찬 도장 관리\n" +
+      "- 보관 장소: 이 기기 안에만 저장 (서버로 보내지 않아요)\n" +
+      "- 보관 기간: 보호자 설정의 '초기화' 또는 앱 삭제 시까지\n" +
+      "- 동의하지 않으면 게임을 시작할 수 없어요";
+
+    private const string CameraTerms =
+      "- 이용 목적: 칫솔 든 손의 움직임 인식, 양치하는 모습 사진 4장 촬영\n" +
+      "- 손 인식은 기기 안에서만 처리되고, 영상은 저장하지 않아요\n" +
+      "- <b><color=#E0508A>촬영한 사진은 이 기기에만 저장되며, 서버로 보내거나 서버에 저장하지 않아요</color></b>\n" +
+      "- 사진은 보호자 설정의 '초기화'로 언제든 지울 수 있어요\n" +
+      "- 기기가 카메라 권한을 물어보면 '허용'을 눌러 주세요";
+
+    private const string CompleteNextLabel = "양치 사진 보기";
+
+    private static ConsentScreen BuildConsent(Transform parent)
+    {
+      var (root, c) = NewScreen("Consent", parent, Cream);
+      Txt("Title", c, new Vector2(0f, 800f), new Vector2(1000f, 100f), "보호자 동의", 64, Dark, bold: true);
+      Txt("Subtitle", c, new Vector2(0f, 720f), new Vector2(1000f, 70f), "게임을 시작하기 전에 보호자님이 읽고 체크해 주세요", 36, Grey);
+
+      var all = CheckRow("AgreeAll", c, new Vector2(0f, 610f), new Vector2(960f, 130f), "전체 동의하기", 50, Color.white, out var allMark);
+
+      var privacyPanel = Img("PrivacyPanel", c, new Vector2(0f, 290f), new Vector2(960f, 440f), Color.white, _rounded);
+      var privacy = CheckRow("AgreePrivacy", privacyPanel.transform, new Vector2(0f, 155f), new Vector2(920f, 110f), "[필수] 개인정보 수집·이용 동의", 40, Lavender, out var privacyMark);
+      Txt("Terms", privacyPanel.transform, new Vector2(0f, -65f), new Vector2(880f, 290f), PrivacyTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
+
+      var cameraPanel = Img("CameraPanel", c, new Vector2(0f, -230f), new Vector2(960f, 560f), Color.white, _rounded);
+      var camera = CheckRow("AgreeCamera", cameraPanel.transform, new Vector2(0f, 215f), new Vector2(920f, 110f), "[필수] 카메라 권한 이용 동의", 40, Lavender, out var cameraMark);
+      Txt("Terms", cameraPanel.transform, new Vector2(0f, -65f), new Vector2(880f, 410f), CameraTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
+
+      var next = Btn("NextButton", c, new Vector2(0f, -810f), new Vector2(760f, 150f), "동의하고 다음", Primary, Color.white, 56);
+      var back = BackButton(c);
+
+      var screen = root.gameObject.AddComponent<ConsentScreen>();
+      SetRef(screen, "_all.button", all);
+      SetRef(screen, "_all.mark", allMark);
+      SetRef(screen, "_privacy.button", privacy);
+      SetRef(screen, "_privacy.mark", privacyMark);
+      SetRef(screen, "_camera.button", camera);
+      SetRef(screen, "_camera.mark", cameraMark);
+      SetRef(screen, "_nextButton", next);
+      SetRef(screen, "_backButton", back);
+      return screen;
+    }
+
+    /// <summary>왼쪽에 동그란 체크 칸이 있는 한 줄 버튼. mark는 체크됐을 때만 켠다</summary>
+    private static Button CheckRow(string name, Transform parent, Vector2 pos, Vector2 size, string label, int fontSize, Color background, out GameObject mark)
+    {
+      var button = Btn(name, parent, pos, size, "", background, Dark, fontSize);
+      var labelText = button.GetComponentInChildren<Text>();
+      labelText.text = label;
+      labelText.alignment = TextAnchor.MiddleLeft;
+      labelText.rectTransform.sizeDelta = new Vector2(size.x - 150f, size.y);
+      labelText.rectTransform.anchoredPosition = new Vector2(60f, 0f);
+      var box = Img("CheckBox", button.transform, new Vector2(-size.x * 0.5f + 70f, 0f), new Vector2(78f, 78f), new Color(0.85f, 0.82f, 0.95f), _circle);
+      var on = Img("Checked", box.transform, Vector2.zero, new Vector2(78f, 78f), new Color(1f, 0.55f, 0.78f), _circle);
+      Img("Check", on.transform, Vector2.zero, new Vector2(60f, 60f), Color.white, _check);
+      on.gameObject.SetActive(false);
+      mark = on.gameObject;
+      return button;
+    }
+
+    private static SignupScreen BuildSignup(Transform parent)
+    {
+      var (root, c) = NewScreen("Signup", parent, Cream);
+      Txt("Title", c, new Vector2(0f, 660f), new Vector2(1000f, 100f), "회원가입", 64, Dark, bold: true);
+      Txt("Subtitle", c, new Vector2(0f, 580f), new Vector2(1000f, 70f), "보호자님의 정보를 입력해 주세요", 40, Grey);
+      Txt("NameLabel", c, new Vector2(0f, 400f), new Vector2(800f, 70f), "보호자 이름", 40, Dark, TextAnchor.MiddleLeft, bold: true);
+      var nameInput = InputBox("NameInput", c, new Vector2(0f, 300f), new Vector2(800f, 140f), "이름", SignupScreen.NameMaxLength);
+      Txt("EmailLabel", c, new Vector2(0f, 140f), new Vector2(800f, 70f), "이메일", 40, Dark, TextAnchor.MiddleLeft, bold: true);
+      var emailInput = InputBox("EmailInput", c, new Vector2(0f, 40f), new Vector2(800f, 140f), "example@email.com", SignupScreen.EmailMaxLength);
+      var note = Txt("Note", c, new Vector2(0f, -90f), new Vector2(900f, 70f), "", 34, Grey);
+      var done = Btn("DoneButton", c, new Vector2(0f, -720f), new Vector2(760f, 160f), "가입하기", Primary, Color.white, 56);
+      var back = BackButton(c);
+
+      var screen = root.gameObject.AddComponent<SignupScreen>();
+      SetRef(screen, "_nameInput", nameInput);
+      SetRef(screen, "_emailInput", emailInput);
+      SetRef(screen, "_note", note);
+      SetRef(screen, "_doneButton", done);
+      SetRef(screen, "_backButton", back);
+      return screen;
+    }
+
+    // ---------- 양치 사진 액자 ----------
+
+    private enum Deco { Heart, Star, Bubble, Cloud }
+
+    /// <summary>사진 칸 모양. Polaroid는 아래 여백이 넓은 흰 종이 + 위에 붙인 테이프</summary>
+    private enum PhotoShape { Rounded, Circle, Heart, Polaroid }
+
+    /// <summary>사진 칸 하나: 가운데 위치, 사진 크기, 기울기, 모양</summary>
+    private readonly struct PhotoSpot
+    {
+      public readonly Vector2 Pos;
+      public readonly float Size;
+      public readonly float Tilt;
+      public readonly PhotoShape Shape;
+
+      public PhotoSpot(float x, float y, float size, float tilt, PhotoShape shape)
+      {
+        Pos = new Vector2(x, y);
+        Size = size;
+        Tilt = tilt;
+        Shape = shape;
+      }
+    }
+
+    /// <summary>액자 하나. 액자를 늘리려면 여기에 하나 추가하면 된다 (사진 칸은 구역 순서대로 4개)</summary>
+    private sealed class FrameTheme
+    {
+      public string Name;
+      public Color Outer, Inner, Accent, Accent2;
+      /// <summary>사진 칸 테두리 색</summary>
+      public Color Border = Color.white;
+      public Deco Deco;
+      public bool Rainbow;
+      public PhotoSpot[] Spots;
+    }
+
+    // 사진 칸은 액자 가운데 기준. 제목 띠(위 475~565)와 날짜 띠(아래 -470~-540) 사이에 둔다
+    private static readonly FrameTheme[] FrameThemes =
+    {
+      // 딸기우유: 하트 사진 넷, 서로 마주 보게 기울인다
+      new FrameTheme
+      {
+        Name = "Strawberry", Outer = Hex("FFB8D4"), Inner = Hex("FFEAF3"), Accent = Hex("FF6FA8"), Accent2 = Color.white,
+        Deco = Deco.Heart,
+        Spots = new[]
+        {
+          new PhotoSpot(-205f, 240f, 420f, 8f, PhotoShape.Heart), new PhotoSpot(205f, 240f, 420f, -8f, PhotoShape.Heart),
+          new PhotoSpot(-205f, -200f, 420f, -8f, PhotoShape.Heart), new PhotoSpot(205f, -200f, 420f, 8f, PhotoShape.Heart),
+        },
+      },
+      // 반짝우주: 크기가 다른 동그란 행성 창문이 지그재그로
+      new FrameTheme
+      {
+        Name = "Space", Outer = Hex("4B3C9E"), Inner = Hex("6D5CCB"), Accent = Hex("FFE07A"), Accent2 = Hex("FFB3E0"),
+        Border = Hex("FFE07A"), Deco = Deco.Star,
+        Spots = new[]
+        {
+          new PhotoSpot(-170f, 255f, 400f, 0f, PhotoShape.Circle), new PhotoSpot(225f, 150f, 290f, 0f, PhotoShape.Circle),
+          new PhotoSpot(-225f, -160f, 290f, 0f, PhotoShape.Circle), new PhotoSpot(170f, -255f, 400f, 0f, PhotoShape.Circle),
+        },
+      },
+      // 민트거품: 첫 사진을 크게, 나머지는 아래에 방울 셋
+      new FrameTheme
+      {
+        Name = "Bubble", Outer = Hex("8EDDC6"), Inner = Hex("E3FAF2"), Accent = Color.white, Accent2 = Hex("6CC7E8"),
+        Deco = Deco.Bubble,
+        Spots = new[]
+        {
+          new PhotoSpot(0f, 175f, 560f, 0f, PhotoShape.Rounded), new PhotoSpot(-285f, -320f, 240f, 0f, PhotoShape.Circle),
+          new PhotoSpot(0f, -340f, 240f, 0f, PhotoShape.Circle), new PhotoSpot(285f, -320f, 240f, 0f, PhotoShape.Circle),
+        },
+      },
+      // 무지개: 테이프로 붙인 폴라로이드를 흩어 놓은 콜라주
+      new FrameTheme
+      {
+        Name = "Rainbow", Outer = Hex("FFF4CC"), Inner = Hex("FFFBEA"), Accent = Hex("FFC845"), Accent2 = Color.white,
+        Deco = Deco.Cloud, Rainbow = true,
+        Spots = new[]
+        {
+          new PhotoSpot(-175f, 225f, 330f, -8f, PhotoShape.Polaroid), new PhotoSpot(185f, 190f, 310f, 7f, PhotoShape.Polaroid),
+          new PhotoSpot(-170f, -215f, 310f, 6f, PhotoShape.Polaroid), new PhotoSpot(185f, -185f, 330f, -6f, PhotoShape.Polaroid),
+        },
+      },
+    };
+
+    private static readonly Color[] RainbowColors =
+    {
+      Hex("FF9AA2"), Hex("FFB870"), Hex("FDE57A"), Hex("8FDC8F"), Hex("89CFF0"), Hex("B9A3E3"),
+    };
+
+    private static readonly Color[] TapeColors = { Hex("FFB3C7"), Hex("A8E0FF"), Hex("FFE68A"), Hex("B8F0C0") };
+
+    // 장식 자리 (액자 가운데 기준): 위치, 크기, 기울기
+    private static readonly (Vector2 pos, float size, float tilt)[] DecoSpots =
+    {
+      (new Vector2(-400f, 560f), 96f, -12f), (new Vector2(400f, 560f), 84f, 14f),
+      (new Vector2(-405f, -560f), 80f, 10f), (new Vector2(405f, -560f), 96f, -8f),
+      (new Vector2(-447f, 0f), 64f, 8f), (new Vector2(447f, 0f), 64f, -10f),
+      (new Vector2(-447f, 300f), 50f, 0f), (new Vector2(447f, -300f), 50f, 0f),
+      (new Vector2(-447f, -300f), 44f, 20f), (new Vector2(447f, 300f), 44f, -20f),
+      (new Vector2(-270f, -578f), 46f, -15f), (new Vector2(270f, -578f), 46f, 15f),
+    };
+
+    private static Color Hex(string hex)
+    {
+      ColorUtility.TryParseHtmlString("#" + hex, out var color);
+      return color;
+    }
+
+    private static PhotoFrameScreen BuildPhotoFrame(Transform parent)
+    {
+      var (root, c) = NewScreen("PhotoFrame", parent, Cream);
+      Txt("Title", c, new Vector2(0f, 805f), new Vector2(1000f, 100f), "찰칵! 오늘의 양치 사진", 62, Dark, bold: true);
+
+      var card = Node("FrameCard", c, new Vector2(0f, 80f), new Vector2(940f, 1240f));
+      var frames = new Object[FrameThemes.Length];
+      var slots = new List<Object>();
+      var photos = new List<Object>();
+      var empties = new List<Object>();
+      for (var i = 0; i < FrameThemes.Length; i++)
+      {
+        var theme = FrameThemes[i];
+        var frame = BuildFrameTheme(card, theme);
+        frames[i] = frame.gameObject;
+        for (var p = 0; p < theme.Spots.Length; p++)
+        {
+          slots.Add(PhotoSlot(frame, $"Photo{p}", theme.Spots[p], theme.Border, TapeColors[(i + p) % TapeColors.Length], out var raw, out var empty));
+          photos.Add(raw);
+          empties.Add(empty);
+        }
+      }
+
+      var caption = Img("CaptionPill", card, new Vector2(0f, 520f), new Vector2(660f, 92f), new Color(1f, 1f, 1f, 0.92f), _rounded, ppu: 0.5f);
+      var captionText = Txt("Caption", caption.transform, Vector2.zero, new Vector2(640f, 92f), "", 42, Dark, bold: true);
+
+      var date = Img("DatePill", card, new Vector2(0f, -505f), new Vector2(440f, 72f), new Color(1f, 1f, 1f, 0.92f), _rounded, ppu: 0.6f);
+      var dateText = Txt("Date", date.transform, Vector2.zero, new Vector2(420f, 72f), "", 34, Grey, bold: true);
+
+      Txt("LocalNote", c, new Vector2(0f, -583f), new Vector2(1000f, 50f), "사진은 이 기기에만 저장되고 서버에는 저장되지 않아요", 30, Grey);
+
+      var buttons = new Object[FrameThemes.Length];
+      var marks = new Object[FrameThemes.Length];
+      for (var i = 0; i < FrameThemes.Length; i++)
+      {
+        var theme = FrameThemes[i];
+        var pos = new Vector2(-240f + 160f * i, -680f);
+        var mark = Img($"FrameMark{i}", c, pos, new Vector2(146f, 146f), new Color(1f, 0.55f, 0.78f), _circle);
+        var button = Btn($"FrameButton{i}", c, pos, new Vector2(118f, 118f), "", theme.Outer, Dark, 20, sprite: _circle);
+        Object.DestroyImmediate(button.GetComponentInChildren<Text>().gameObject);
+        // 버튼 바탕은 UI 스킨이 흰 원으로 바꾸므로, 테두리 색은 안쪽 동그라미로 보여준다
+        Img("Swatch", button.transform, Vector2.zero, new Vector2(96f, 96f), theme.Outer, _circle);
+        DecoImage("Icon", button.transform, Vector2.zero, 56f, 0f, theme, 0);
+        buttons[i] = button;
+        marks[i] = mark.gameObject;
+      }
+
+      var next = Btn("NextButton", c, new Vector2(0f, -830f), new Vector2(760f, 150f), "칭찬 도장 받기", Green, Color.white, 56);
+
+      var screen = root.gameObject.AddComponent<PhotoFrameScreen>();
+      SetArray(screen, "_frames", frames);
+      SetArray(screen, "_frameButtons", buttons);
+      SetArray(screen, "_frameButtonMarks", marks);
+      SetArray(screen, "_slots", slots.ToArray());
+      SetArray(screen, "_photos", photos.ToArray());
+      SetArray(screen, "_emptyPhotos", empties.ToArray());
+      SetRef(screen, "_caption", captionText);
+      SetRef(screen, "_date", dateText);
+      SetRef(screen, "_nextButton", next);
+      return screen;
+    }
+
+    /// <summary>
+    ///   사진 칸 하나: 테두리 + 모양대로 잘린 사진(Mask) + 사진이 없을 때의 캐릭터 그림.
+    ///   돌려받는 RectTransform은 튀어나오는 연출에 쓰는 칸 전체
+    /// </summary>
+    private static RectTransform PhotoSlot(Transform frame, string name, PhotoSpot spot, Color border, Color tape, out RawImage raw, out Image empty)
+    {
+      var size = spot.Size;
+      var slot = Node(name, frame, spot.Pos, new Vector2(size, size));
+      slot.localEulerAngles = new Vector3(0f, 0f, spot.Tilt);
+
+      var shape = _rounded;
+      var maskPos = Vector2.zero;
+      var maskPpu = 1.4f;
+      switch (spot.Shape)
+      {
+        case PhotoShape.Heart:
+          shape = _heart;
+          // 하트는 그림 안에서 살짝 위에 있어서 테두리를 조금 크게, 아래로
+          Shadowed(Img("Border", slot, new Vector2(0f, -6f), new Vector2(size * 1.13f, size * 1.13f), border, _heart));
+          break;
+        case PhotoShape.Circle:
+          shape = _circle;
+          Shadowed(Img("Border", slot, Vector2.zero, new Vector2(size + 32f, size + 32f), border, _circle));
+          break;
+        case PhotoShape.Polaroid:
+          maskPos = new Vector2(0f, 28f);
+          maskPpu = 4f;
+          Shadowed(Img("Border", slot, Vector2.zero, new Vector2(size + 36f, size + 100f), border, _rounded, ppu: 4f));
+          break;
+        default:
+          Shadowed(Img("Border", slot, Vector2.zero, new Vector2(size + 36f, size + 36f), border, _rounded, ppu: 0.9f));
+          break;
+      }
+
+      var maskSize = new Vector2(size, size);
+      var mask = Img("Mask", slot, maskPos, maskSize, Color.white, shape, ppu: maskPpu);
+      mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+      var bg = Img("EmptyBg", mask.transform, Vector2.zero, Vector2.zero, Lavender, null);
+      Fit(bg.rectTransform);
+      raw = Node("Picture", mask.transform, Vector2.zero, Vector2.zero).gameObject.AddComponent<RawImage>();
+      Fit(raw.rectTransform);
+      raw.raycastTarget = false;
+      // 하트·동그라미는 가장자리가 잘리므로 캐릭터를 조금 작게
+      var emptyScale = spot.Shape == PhotoShape.Heart ? 0.68f : spot.Shape == PhotoShape.Circle ? 0.8f : 0.9f;
+      empty = Img("NoPicture", mask.transform, new Vector2(0f, spot.Shape == PhotoShape.Heart ? -size * 0.04f : 0f), maskSize * emptyScale, Mint, _circle);
+
+      if (spot.Shape == PhotoShape.Polaroid)
+      {
+        var strip = Img("Tape", slot, new Vector2(0f, (size + 100f) * 0.5f - 6f), new Vector2(150f, 46f), new Color(tape.r, tape.g, tape.b, 0.85f), null);
+        strip.rectTransform.localEulerAngles = new Vector3(0f, 0f, -spot.Tilt * 1.5f + 4f);
+      }
+      return slot;
+    }
+
+    private static void Shadowed(Image image)
+    {
+      image.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(0f, -8f);
+    }
+
+    private static RectTransform BuildFrameTheme(Transform card, FrameTheme theme)
+    {
+      var frame = Node($"Frame_{theme.Name}", card, Vector2.zero, new Vector2(940f, 1240f));
+      Img("Outer", frame, Vector2.zero, new Vector2(940f, 1240f), theme.Outer, _rounded, ppu: 0.45f).gameObject.AddComponent<Shadow>().effectDistance = new Vector2(0f, -10f);
+      if (theme.Rainbow)
+      {
+        // 바깥에서 안쪽으로 무지개 띠
+        for (var r = 0; r < RainbowColors.Length; r++)
+        {
+          var inset = 12f + 13f * r;
+          Img($"Stripe{r}", frame, Vector2.zero, new Vector2(940f - inset * 2f, 1240f - inset * 2f), RainbowColors[r], _rounded, ppu: 0.45f + 0.03f * r);
+        }
+      }
+      var innerInset = theme.Rainbow ? 104f : 40f;
+      Img("Inner", frame, Vector2.zero, new Vector2(940f - innerInset * 2f, 1240f - innerInset * 2f), theme.Inner, _rounded, ppu: 0.6f);
+      for (var i = 0; i < DecoSpots.Length; i++)
+      {
+        var (pos, size, tilt) = DecoSpots[i];
+        DecoImage($"Deco{i}", frame, pos, size, tilt, theme, i);
+      }
+      return frame;
+    }
+
+    /// <summary>테두리 장식 하나. 짝수 번째는 주 색, 홀수 번째는 보조 색/모양</summary>
+    private static void DecoImage(string name, Transform parent, Vector2 pos, float size, float tilt, FrameTheme theme, int index)
+    {
+      var alt = index % 2 == 1;
+      var color = alt ? theme.Accent2 : theme.Accent;
+      Image img;
+      switch (theme.Deco)
+      {
+        case Deco.Heart:
+          img = Img(name, parent, pos, new Vector2(size, size), color, _heart);
+          break;
+        case Deco.Star when alt:
+          // 우주: 별 사이사이 고리 없는 작은 행성
+          img = Img(name, parent, pos, new Vector2(size * 0.8f, size * 0.8f), color, _circle);
+          Img("Shine", img.transform, new Vector2(-size * 0.15f, size * 0.15f), new Vector2(size * 0.25f, size * 0.25f), new Color(1f, 1f, 1f, 0.7f), _circle);
+          break;
+        case Deco.Star:
+          img = Img(name, parent, pos, new Vector2(size, size), color, _star);
+          break;
+        case Deco.Bubble:
+          img = Img(name, parent, pos, new Vector2(size, size), new Color(color.r, color.g, color.b, 0.85f), _circle);
+          Img("Shine", img.transform, new Vector2(-size * 0.18f, size * 0.18f), new Vector2(size * 0.28f, size * 0.28f), Color.white, _circle);
+          break;
+        default:
+          if (alt)
+          {
+            // 구름: 동그라미 세 개
+            img = Img(name, parent, pos, new Vector2(size * 0.7f, size * 0.7f), color, _circle);
+            Img("Puff1", img.transform, new Vector2(-size * 0.38f, -size * 0.1f), new Vector2(size * 0.5f, size * 0.5f), color, _circle);
+            Img("Puff2", img.transform, new Vector2(size * 0.38f, -size * 0.12f), new Vector2(size * 0.45f, size * 0.45f), color, _circle);
+          }
+          else
+          {
+            img = Img(name, parent, pos, new Vector2(size, size), color, _star);
+          }
+          break;
+      }
+      img.rectTransform.localEulerAngles = new Vector3(0f, 0f, tilt);
+    }
+
+    /// <summary>양치 화면 카메라 작은 창에 사진 찍기(번쩍임 + 찰칵 글자)를 붙이고 양치 화면에 연결한다. 이미 있으면 다시 만든다</summary>
+    private static void BuildPhotoBooth(BrushingScreen brushing, GameObject feed)
+    {
+      var window = new SerializedObject(brushing).FindProperty("_cameraWindow").objectReferenceValue as RectTransform;
+      var host = window != null ? window.gameObject : brushing.gameObject;
+      var old = host.GetComponent<PhotoBooth>();
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old);
+      }
+      var oldFlash = window != null ? window.Find("PhotoFlash") : null;
+      if (oldFlash != null)
+      {
+        Undo.DestroyObjectImmediate(oldFlash.gameObject);
+      }
+
+      var booth = Undo.AddComponent<PhotoBooth>(host);
+      SetRef(booth, "_feed", feed.GetComponentInChildren<RawImage>(true));
+      if (window != null)
+      {
+        var flash = Img("PhotoFlash", window, Vector2.zero, Vector2.zero, Color.white, null);
+        Fit(flash.rectTransform);
+        Txt("Label", flash.transform, Vector2.zero, new Vector2(300f, 100f), "찰칵!", 52, Primary, bold: true);
+        flash.gameObject.SetActive(false);
+        Undo.RegisterCreatedObjectUndo(flash.gameObject, "Photo Flash");
+        SetRef(booth, "_flash", flash);
+      }
+      SetRef(brushing, "_photoBooth", booth);
     }
 
     private static StickerScreen BuildStickers(Transform parent)
@@ -2178,7 +2747,7 @@ namespace BrushGame.EditorTools
       return card;
     }
 
-    private static InputField InputBox(string name, Transform parent, Vector2 pos, Vector2 size, string placeholder)
+    private static InputField InputBox(string name, Transform parent, Vector2 pos, Vector2 size, string placeholder, int limit = NicknameScreen.MaxLength)
     {
       var bg = Img(name, parent, pos, size, Color.white, _rounded);
       bg.raycastTarget = true;
@@ -2196,7 +2765,7 @@ namespace BrushGame.EditorTools
       field.textComponent = text;
       field.placeholder = hint;
       field.lineType = InputField.LineType.SingleLine;
-      field.characterLimit = NicknameScreen.MaxLength;
+      field.characterLimit = limit;
       return field;
     }
 

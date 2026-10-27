@@ -18,13 +18,15 @@ namespace BrushGame.EditorTools
 
     private static readonly Dictionary<string, string> Backgrounds = new Dictionary<string, string>
     {
+      { "Consent", "BG_Soft" }, { "Signup", "BG_Soft" },
       { "AgeSelect", "BG_Soft" }, { "CharacterSelect", "BG_Soft" }, { "Nickname", "BG_Soft" },
+      { "PhotoFrame", "BG_Celebrate" },
       { "Lobby", "BG_Lobby" }, { "PatientBook", "BG_Lobby" }, { "PatientIntro", "BG_Lobby" },
       { "Complete", "BG_Celebrate" }, { "Stickers", "BG_Celebrate" }, { "Badges", "BG_Celebrate" },
     };
 
     // 제목부터 주 버튼 위까지 흰 판 하나에 담는 화면
-    private static readonly HashSet<string> SheetScreens = new HashSet<string> { "AgeSelect", "CharacterSelect", "Nickname" };
+    private static readonly HashSet<string> SheetScreens = new HashSet<string> { "Signup", "AgeSelect", "CharacterSelect", "Nickname" };
 
     public static readonly Color Ink = new Color(0.29f, 0.23f, 0.55f);
     private static readonly Color InkSoft = new Color(0.48f, 0.42f, 0.66f);

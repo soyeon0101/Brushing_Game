@@ -5,9 +5,9 @@ namespace BrushGame
 {
   /// <summary>
   ///   화면 전환의 유일한 기준. 화면들은 버튼 이벤트만 알리고, 어디로 갈지는 여기서 정한다.
-  ///   첫 실행: 타이틀 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
-  ///   이후:   타이틀 → 로비
-  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치 → 완료 → 스티커 → 우주 항해 지도 → 로비
+  ///   첫 실행: 타이틀 → 보호자 동의 → 회원가입 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
+  ///   이후:   타이틀 → 로비 (동의·가입 기록이 없는 예전 저장 파일은 동의·가입만 받고 로비로)
+  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치(구역마다 사진) → 완료 → 사진 액자 → 스티커 → 우주 항해 지도 → 로비
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
@@ -23,6 +23,10 @@ namespace BrushGame
 
     [Header("화면")]
     [SerializeField] private TitleScreen _title;
+    [Tooltip("보호자 동의 (개인정보, 카메라). 없으면 건너뛴다")]
+    [SerializeField] private ConsentScreen _consent;
+    [Tooltip("보호자 회원가입. 없으면 건너뛴다")]
+    [SerializeField] private SignupScreen _signup;
     [SerializeField] private AgeSelectScreen _ageSelect;
     [SerializeField] private CharacterSelectScreen _characterSelect;
     [SerializeField] private NicknameScreen _nickname;
@@ -33,6 +37,8 @@ namespace BrushGame
     [SerializeField] private LoadingScreen _loading;
     [SerializeField] private BrushingScreen _brushing;
     [SerializeField] private CompleteScreen _complete;
+    [Tooltip("양치 사진 4장 액자. 완료 다음, 칭찬 도장 전에 열린다 (없으면 건너뛴다)")]
+    [SerializeField] private PhotoFrameScreen _photoFrame;
     [SerializeField] private StickerScreen _stickers;
     [Tooltip("우주 항해 지도. 로비의 반짝 배지 버튼과 치료 후 스티커판 다음에 열린다")]
     [SerializeField] private SpaceMapScreen _spaceMap;
@@ -71,17 +77,57 @@ namespace BrushGame
 
       _title.StartPressed += () =>
       {
-        if (Data.HasProfile)
+        if (!Data.HasAccount && _consent != null && _signup != null)
         {
-          ShowLobby();
+          _consent.Setup(Data.account);
+          Show(_consent);
         }
         else
         {
-          ShowAgeSelect();
+          ShowAfterSignup();
         }
       };
 
-      _ageSelect.BackPressed += () => Show(_title);
+      if (_consent != null && _signup != null)
+      {
+        _consent.BackPressed += () => Show(_title);
+        _consent.Confirmed += () =>
+        {
+          _signup.Setup(Data.account);
+          Show(_signup);
+        };
+        _signup.BackPressed += () =>
+        {
+          _consent.Setup(Data.account);
+          Show(_consent);
+        };
+        _signup.Confirmed += (guardianName, email) =>
+        {
+          Data.account = new GuardianAccount
+          {
+            guardianName = guardianName,
+            email = email,
+            agreedPrivacy = true,
+            agreedCamera = true,
+            agreedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+          };
+          SaveStore.Save();
+          ShowAfterSignup();
+        };
+      }
+
+      _ageSelect.BackPressed += () =>
+      {
+        if (_signup != null)
+        {
+          _signup.Setup(Data.account);
+          Show(_signup);
+        }
+        else
+        {
+          Show(_title);
+        }
+      };
       _ageSelect.Confirmed += age =>
       {
         _draft.age = age;
@@ -150,13 +196,21 @@ namespace BrushGame
       };
       _brushing.QuitRequested += ShowLobby;
       _brushing.Completed += OnTreatmentComplete;
-      // 치료 후: 스티커판에서 도장 쾅 → 우주 항해 지도에서 새 발판 켜짐 → 로비
+      // 치료 후: 양치 사진 액자 → 스티커판에서 도장 쾅 → 우주 항해 지도에서 새 발판 켜짐 → 로비
       _complete.Confirmed += () =>
       {
-        _mapAfterStickers = true;
-        _stickers.Setup(Data, _newSticker);
-        Show(_stickers);
+        if (_photoFrame != null)
+        {
+          _photoFrame.Setup(Data, _brushing.Photos, _catalog.FindCharacter(Data.profile.characterId));
+          Show(_photoFrame);
+          return;
+        }
+        ShowNewSticker();
       };
+      if (_photoFrame != null)
+      {
+        _photoFrame.Confirmed += ShowNewSticker;
+      }
       _stickers.BackPressed += () =>
       {
         if (!_mapAfterStickers)
@@ -200,9 +254,29 @@ namespace BrushGame
 
     private ScreenBase[] AllScreens() => Array.FindAll(new ScreenBase[]
     {
-      _title, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _stickers, _spaceMap, _badges, _partnerRoom,
+      _title, _consent, _signup, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
+      _cameraReady, _loading, _brushing, _complete, _photoFrame, _stickers, _spaceMap, _badges, _partnerRoom,
     }, s => s != null);
+
+    /// <summary>가입을 마친 뒤: 프로필이 있으면 로비, 없으면 프로필 만들기(나이 고르기)부터</summary>
+    private void ShowAfterSignup()
+    {
+      if (Data.HasProfile)
+      {
+        ShowLobby();
+      }
+      else
+      {
+        ShowAgeSelect();
+      }
+    }
+
+    private void ShowNewSticker()
+    {
+      _mapAfterStickers = true;
+      _stickers.Setup(Data, _newSticker);
+      Show(_stickers);
+    }
 
     private void Show(ScreenBase screen)
     {
