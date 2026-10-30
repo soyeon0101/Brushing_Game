@@ -7,7 +7,7 @@ namespace BrushGame
   ///   화면 전환의 유일한 기준. 화면들은 버튼 이벤트만 알리고, 어디로 갈지는 여기서 정한다.
   ///   첫 실행: 타이틀 → 보호자 동의 → 회원가입 → 나이 → 캐릭터 → 닉네임(프로필 생성) → 로비
   ///   이후:   타이틀 → 로비 (동의·가입 기록이 없는 예전 저장 파일은 동의·가입만 받고 로비로)
-  ///   치료:   로비 → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치(구역마다 사진) → 완료 → 사진 액자 → 스티커 → 우주 항해 지도 → 로비
+  ///   치료:   로비 → (처음 한 번만) 양치 동화(측정) → 환자 확인 → 카메라 준비 → 로딩 → 4구역 양치(구역마다 사진) → 완료 → 사진 액자 → 스티커 → 우주 항해 지도 → 로비
   /// </summary>
   public class GameFlow : MonoBehaviour
   {
@@ -46,6 +46,8 @@ namespace BrushGame
     [SerializeField] private BadgeScreen _badges;
     [Tooltip("파트너 방 (로봇 친구)")]
     [SerializeField] private PartnerRoomScreen _partnerRoom;
+    [Tooltip("양치로 넘기는 동화 (세계관 + 아이 양치 동작 측정). 처음 치료 시작을 누르면 환자 확인 전에 한 번. 없으면 건너뛴다")]
+    [SerializeField] private BrushStoryScreen _story;
     [SerializeField] private GuardianSettingsPanel _settings;
 
     [Header("로비 버튼 자리 (BrushGame/Lobby 메뉴가 버튼 그림·글자와 함께 바꾼다)")]
@@ -56,6 +58,8 @@ namespace BrushGame
     private PlayerProfile _draft = new PlayerProfile();
     private PatientInfo _patient;
     private StickerRecord _newSticker;
+    /// <summary>동화를 보호자 설정의 다시 재기로 열었는지 (끝나면 로비로. 아니면 환자 확인으로)</summary>
+    private bool _storyRemeasure;
     /// <summary>치료 직후 스티커판이면 다음에 지도를 보여준다 (로비에서 연 스티커판은 로비로)</summary>
     private bool _mapAfterStickers;
 
@@ -153,10 +157,15 @@ namespace BrushGame
 
       _lobby.TreatPressed += () =>
       {
-        var now = DateTime.Now;
-        _patient = _catalog.PatientFor(Data, now);
-        _patientIntro.Setup(_patient, SaveData.SlotAt(now));
-        Show(_patientIntro);
+        // 처음 치료 시작이면 동화(세계관 + 양치 측정)부터. 동화 마지막 장 "아픈 친구들을 도와줄래요?" → 환자 확인으로 이어진다
+        if (_story != null && !Data.brushStorySeen)
+        {
+          _storyRemeasure = false;
+          _story.Setup(Data.profile.nickname, Data.profile.characterId, remeasure: false);
+          Show(_story);
+          return;
+        }
+        ShowPatientIntro();
       };
       _lobby.BookPressed += () =>
       {
@@ -176,6 +185,27 @@ namespace BrushGame
         Show(_stickers);
       };
       _lobby.SettingsPressed += _settings.Open;
+      if (_story != null)
+      {
+        _story.Finished += _ =>
+        {
+          if (_storyRemeasure)
+          {
+            ShowLobby();
+            return;
+          }
+          Data.brushStorySeen = true;
+          SaveStore.Save();
+          ShowPatientIntro();
+        };
+        _settings.RemeasureRequested += () =>
+        {
+          _settings.Close();
+          _storyRemeasure = true;
+          _story.Setup(Data.profile.nickname, Data.profile.characterId, remeasure: true);
+          Show(_story);
+        };
+      }
       _settings.ResetConfirmed += () =>
       {
         SaveStore.ResetAll();
@@ -255,7 +285,7 @@ namespace BrushGame
     private ScreenBase[] AllScreens() => Array.FindAll(new ScreenBase[]
     {
       _title, _consent, _signup, _ageSelect, _characterSelect, _nickname, _lobby, _patientBook, _patientIntro,
-      _cameraReady, _loading, _brushing, _complete, _photoFrame, _stickers, _spaceMap, _badges, _partnerRoom,
+      _cameraReady, _loading, _brushing, _complete, _photoFrame, _stickers, _spaceMap, _badges, _partnerRoom, _story,
     }, s => s != null);
 
     /// <summary>가입을 마친 뒤: 프로필이 있으면 로비, 없으면 프로필 만들기(나이 고르기)부터</summary>
@@ -269,6 +299,15 @@ namespace BrushGame
       {
         ShowAgeSelect();
       }
+    }
+
+    /// <summary>이번 끼니의 환자 확인 (누른 시각 기준. 로비에 오래 있거나 동화를 보는 사이 끼니가 바뀔 수 있다)</summary>
+    private void ShowPatientIntro()
+    {
+      var now = DateTime.Now;
+      _patient = _catalog.PatientFor(Data, now);
+      _patientIntro.Setup(_patient, SaveData.SlotAt(now));
+      Show(_patientIntro);
     }
 
     private void ShowNewSticker()
@@ -286,7 +325,7 @@ namespace BrushGame
         _current.gameObject.SetActive(false);
       }
       _current = screen;
-      _cameraFeed.SetActive(screen == _cameraReady || screen == _brushing);
+      _cameraFeed.SetActive(screen == _cameraReady || screen == _brushing || screen == _story);
       PlayMusicFor(screen);
       screen.gameObject.SetActive(true);
       screen.OnShow();

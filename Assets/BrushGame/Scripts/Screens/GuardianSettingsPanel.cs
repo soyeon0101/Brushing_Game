@@ -52,6 +52,10 @@ namespace BrushGame
     [Tooltip("현재 값, 범위 안내, 잘못 입력했을 때 알림")]
     [SerializeField] private Text _zoneSecondsNote;
     [SerializeField] private Button _resetButton;
+    [Tooltip("양치 기준 다시 재기 (동화의 측정 부분만). 없으면 숨김")]
+    [SerializeField] private Button _remeasureButton;
+    [Tooltip("지금 저장된 양치 측정값")]
+    [SerializeField] private Text _calibrationNote;
 
     [SerializeField] private Button _closeButton;
 
@@ -63,6 +67,7 @@ namespace BrushGame
     [SerializeField] private Button _confirmCancelButton;
 
     public event Action ResetConfirmed;
+    public event Action RemeasureRequested;
 
     private static GuardianSettings Settings => SaveStore.Data.settings;
 
@@ -108,6 +113,11 @@ namespace BrushGame
         Close();
         ResetConfirmed?.Invoke();
       }));
+
+      if (_remeasureButton != null)
+      {
+        _remeasureButton.onClick.AddListener(() => RemeasureRequested?.Invoke());
+      }
 
       _confirmCancelButton.onClick.AddListener(() => _confirmPanel.SetActive(false));
       _confirmOkButton.onClick.AddListener(() =>
@@ -216,6 +226,13 @@ namespace BrushGame
       _voiceLabel.text = Settings.voiceGuide ? "켜짐" : "꺼짐";
       _zoneSecondsInput.text = Settings.zoneSeconds.ToString();
       ShowZoneNote(false);
+      if (_calibrationNote != null)
+      {
+        var c = SaveStore.Data.brushCalibration;
+        _calibrationNote.text = c != null && c.measured
+          ? $"왕복 폭: 손 크기의 {c.swing * 100f:F0}%  ·  속도: 초당 {c.rate:F1}번"
+          : "아직 안 쟀어요 (기본 기준 사용)";
+      }
     }
 
     private void SetRow(VolumeRow row, float volume, bool on)

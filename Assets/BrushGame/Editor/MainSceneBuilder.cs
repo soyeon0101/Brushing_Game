@@ -36,6 +36,7 @@ namespace BrushGame.EditorTools
     private const string MapArtDir = "Assets/BrushGame/Art/Map";
     private const string PlanetDataDir = "Assets/BrushGame/Data/Planets";
     private const string PartnerArtDir = "Assets/BrushGame/Art/Partner";
+    private const string StoryArtDir = "Assets/BrushGame/Art/Story";
     private const string BootstrapPrefabPath = "Assets/MediaPipeUnity/Samples/Resources/Bootstrap.prefab";
 
     // 임시 색. 그림을 넣을 때 Image 색을 흰색으로 바꿔야 그림 색이 그대로 나온다 (ArtSlot은 자동으로 함)
@@ -130,6 +131,7 @@ namespace BrushGame.EditorTools
       var age = BuildAgeSelect(screens);
       var character = BuildCharacterSelect(screens);
       var nickname = BuildNickname(screens);
+      var story = BuildBrushStory(screens, hub);
       var lobby = BuildLobby(screens);
       var book = BuildPatientBook(screens);
       var intro = BuildPatientIntro(screens);
@@ -144,6 +146,7 @@ namespace BrushGame.EditorTools
       var partnerRoom = BuildPartnerRoom(screens);
       var badges = BuildBadges(screens);
       var settings = BuildSettings(root);
+      AddRemeasureRow(settings);
       BuildQuitConfirm(root);
 
       new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
@@ -170,6 +173,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, "_partnerRoom", partnerRoom);
       SetRef(flow, "_badges", badges);
       SetRef(flow, "_settings", settings);
+      SetRef(flow, "_story", story);
       BuildSound();
 
       FontRoles.ApplyAll();
@@ -434,6 +438,240 @@ namespace BrushGame.EditorTools
       EditorSceneManager.MarkSceneDirty(scene);
       EditorSceneManager.SaveScene(scene);
       Debug.Log("[BrushGame] 보호자 동의·회원가입, 양치 사진 액자를 만들고 씬을 저장했습니다.");
+    }
+
+    /// <summary>
+    ///   열려 있는 Main 씬에 양치 동화(세계관 + 아이 양치 동작 측정)를 만들어 연결하고 (처음 치료 시작 때 환자 확인 전에 한 번),
+    ///   보호자 설정 게임 탭에 "양치 기준 다시 재기" 줄을 넣은 뒤 저장한다. 이미 있으면 다시 만든다.
+    ///   보호자 설정 창 전체는 다시 만들지 않는다 (손으로 고친 내용 보호).
+    /// </summary>
+    [MenuItem("BrushGame/Add Brush Story To Scene")]
+    public static void AddBrushStoryMenu()
+    {
+      if (WarnIfPlaying())
+      {
+        return;
+      }
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var nickname = Object.FindFirstObjectByType<NicknameScreen>(FindObjectsInactive.Include);
+      var hub = Object.FindFirstObjectByType<BrushInputHub>(FindObjectsInactive.Include);
+      var settings = Object.FindFirstObjectByType<GuardianSettingsPanel>(FindObjectsInactive.Include);
+      if (flow == null || nickname == null || hub == null || settings == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      var old = Object.FindFirstObjectByType<BrushStoryScreen>(FindObjectsInactive.Include);
+      if (old != null)
+      {
+        Undo.DestroyObjectImmediate(old.gameObject);
+      }
+      var screen = BuildBrushStory(nickname.transform.parent, hub);
+      Undo.RegisterCreatedObjectUndo(screen.gameObject, "Add Brush Story");
+      screen.transform.SetSiblingIndex(nickname.transform.GetSiblingIndex() + 1);
+      screen.gameObject.SetActive(false);
+      SetRef(flow, "_story", screen);
+      SetBool(hub, "_calibrationEnabled", true);
+      FontRoles.ApplyAll(screen.transform);
+      UiSkin.ApplyAll(screen.transform);
+      AddRemeasureRow(settings);
+
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 양치 동화를 넣고 (처음 치료 시작 때 한 번), 보호자 설정에 양치 기준 다시 재기를 넣었습니다.");
+    }
+
+    /// <summary>동화를 GameFlow에서 떼어 낸다 (화면은 씬에 남는다). 치료 시작 → 바로 환자 확인, 다시 재기 줄은 숨김, 아이별 양치 기준도 끔 (기본 판정만)</summary>
+    [MenuItem("BrushGame/Restore/Brush Story - Off")]
+    public static void BrushStoryOff() => SetBrushStoryLinked(false);
+
+    [MenuItem("BrushGame/Story/Brush Story - On")]
+    public static void BrushStoryOn() => SetBrushStoryLinked(true);
+
+    // 씬 저장은 플레이 중에 할 수 없어서, 플레이 중에는 메뉴를 흐리게 한다
+    [MenuItem("BrushGame/Add Brush Story To Scene", true)]
+    [MenuItem("BrushGame/Restore/Brush Story - Off", true)]
+    [MenuItem("BrushGame/Story/Brush Story - On", true)]
+    private static bool NotPlaying() => !EditorApplication.isPlayingOrWillChangePlaymode;
+
+    /// <summary>MCP로 실행하면 흐린 메뉴도 불릴 수 있어서 한 번 더 막는다</summary>
+    private static bool WarnIfPlaying()
+    {
+      if (!EditorApplication.isPlayingOrWillChangePlaymode)
+      {
+        return false;
+      }
+      Debug.LogWarning("[BrushGame] 플레이 중에는 씬을 바꿀 수 없습니다. 플레이를 멈추고 다시 실행하세요.");
+      return true;
+    }
+
+    private static void SetBrushStoryLinked(bool on)
+    {
+      if (WarnIfPlaying())
+      {
+        return;
+      }
+      var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
+      var story = Object.FindFirstObjectByType<BrushStoryScreen>(FindObjectsInactive.Include);
+      var settings = Object.FindFirstObjectByType<GuardianSettingsPanel>(FindObjectsInactive.Include);
+      if (flow == null || (on && story == null))
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요. 동화가 없으면 BrushGame/Add Brush Story To Scene 먼저.");
+        return;
+      }
+      SetRef(flow, "_story", on ? story : null);
+      // 끄면 아이별 양치 기준(측정값 적용 + 양치마다 측정)도 같이 꺼서 예전 판정 그대로 돌아간다
+      var hub = Object.FindFirstObjectByType<BrushInputHub>(FindObjectsInactive.Include);
+      if (hub != null)
+      {
+        SetBool(hub, "_calibrationEnabled", on);
+      }
+      var remeasure = settings != null ? new SerializedObject(settings).FindProperty("_remeasureButton").objectReferenceValue as Button : null;
+      if (remeasure != null)
+      {
+        remeasure.transform.parent.gameObject.SetActive(on);
+      }
+      var scene = flow.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log($"[BrushGame] 양치 동화 {(on ? "켬" : "끔 (치료 시작 → 바로 환자 확인)")}");
+    }
+
+    /// <summary>
+    ///   양치로 넘기는 동화. 카메라 영상(손 인식은 계속 돈다) 위를 배경 그림(Loading_BG)으로 가리고, 그 위에 동화책 카드.
+    ///   페이지 그림: Art/Story/story_boy_1~4(왕자), story_girl_1~4(공주) — Story.png, Story2.png 4컷을 나눈 것.
+    /// </summary>
+    private static BrushStoryScreen BuildBrushStory(Transform parent, BrushInputHub input)
+    {
+      var (root, c) = NewScreen("BrushStory", parent, null);
+      // 배경은 1080x1920 판에 깔고 판째로 화면을 덮게 키운다 (카메라가 보이지 않게)
+      var backdrop = Node("Backdrop", root, Vector2.zero, new Vector2(1080f, 1920f));
+      backdrop.gameObject.AddComponent<CoverFit>();
+      backdrop.SetAsFirstSibling();
+      var bgArt = LoadArt(LoadingArtDir, "Loading_BG");
+      var bg = Img("Background", backdrop, Vector2.zero, Vector2.zero, bgArt != null ? Color.white : Lavender, bgArt);
+      Fit(bg.rectTransform);
+      bg.raycastTarget = true;
+
+      var cardRoot = Node("Card", c, new Vector2(0f, 300f), new Vector2(960f, 1000f));
+      var card = cardRoot.gameObject.AddComponent<CanvasGroup>();
+      card.blocksRaycasts = false;
+      Img("Book", cardRoot, Vector2.zero, new Vector2(960f, 1000f), Cream, _rounded);
+      // 4컷 그림(약 1.4~1.6 : 1)을 틀(3:2)에 꽉 채운다. 비율이 다르면 가장자리가 조금 잘린다
+      // (스텐실 Mask는 이 캔버스에서 그림을 통째로 가려서 RectMask2D를 쓴다)
+      var artMask = Node("ArtMask", cardRoot, new Vector2(0f, 170f), new Vector2(900f, 600f));
+      artMask.gameObject.AddComponent<RectMask2D>();
+      var art = Img("Art", artMask, Vector2.zero, new Vector2(900f, 600f), Color.white, null);
+      var fitter = art.gameObject.AddComponent<AspectRatioFitter>();
+      fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+      fitter.aspectRatio = 1.5f;
+      var placeholder = Img("ArtPlaceholder", cardRoot, new Vector2(0f, 170f), new Vector2(900f, 600f), Lavender, _rounded);
+      Txt("Label", placeholder.transform, Vector2.zero, new Vector2(860f, 100f), "그림 자리", 40, Grey);
+      var text = Txt("Text", cardRoot, new Vector2(0f, -300f), new Vector2(900f, 300f), "", 50, Dark, bold: true);
+      var count = Txt("PageCount", cardRoot, new Vector2(-150f, 30f), new Vector2(200f, 50f), "", 30, Color.white, TextAnchor.MiddleRight, anchor: TopRight);
+
+      // 배경 그림 위에서도 보이게 밝은 바탕
+      var gauge = Img("Gauge", c, new Vector2(0f, -330f), new Vector2(820f, 70f), new Color(1f, 1f, 1f, 0.55f), _rounded);
+      var fill = Img("Fill", gauge.transform, new Vector2(10f, 0f), new Vector2(800f, 50f), Mint, _rounded, new Vector2(0f, 0.5f));
+      fill.rectTransform.pivot = new Vector2(0f, 0.5f);
+
+      var guidePill = Img("GuidePill", c, new Vector2(0f, -460f), new Vector2(940f, 130f), Dim, _rounded);
+      var guide = Txt("Guide", guidePill.transform, Vector2.zero, new Vector2(900f, 120f), "", 44, Color.white, bold: true);
+
+      var next = Btn("NextButton", c, new Vector2(0f, -400f), new Vector2(620f, 160f), "좋아!", Primary, Color.white, 56);
+      var skip = Btn("SkipButton", c, new Vector2(0f, -640f), new Vector2(380f, 100f), "다음 장 보기", Lavender, Dark, 36);
+
+      var screen = root.gameObject.AddComponent<BrushStoryScreen>();
+      SetRef(screen, "_input", input);
+      SetRef(screen, "_card", card);
+      SetRef(screen, "_art", art);
+      SetRef(screen, "_artPlaceholder", placeholder.gameObject);
+      SetRef(screen, "_text", text);
+      SetRef(screen, "_pageCount", count);
+      SetRef(screen, "_gauge", gauge.gameObject);
+      SetRef(screen, "_gaugeFill", fill.rectTransform);
+      SetRef(screen, "_guideRoot", guidePill.gameObject);
+      SetRef(screen, "_guide", guide);
+      SetRef(screen, "_nextButton", next);
+      SetRef(screen, "_nextLabel", next.GetComponentInChildren<Text>(true));
+      SetRef(screen, "_skipButton", skip);
+      next.gameObject.SetActive(false);
+      skip.gameObject.SetActive(false);
+      SetStoryArt(screen);
+      return screen;
+    }
+
+    /// <summary>
+    ///   동화 페이지 그림: 이야기 i장 = 4컷의 i번째 칸, 다시 재기 = 3컷(연락), 2컷(충치균), 4컷(출동).
+    ///   캐릭터 id별로 남자(왕자)·여자(공주) 그림을 따로 넣는다.
+    /// </summary>
+    private static void SetStoryArt(BrushStoryScreen screen)
+    {
+      foreach (var name in new[] { "story_boy", "story_girl" })
+      {
+        for (var i = 1; i <= 4; i++)
+        {
+          var path = $"{StoryArtDir}/{name}_{i}.png";
+          if (AssetImporter.GetAtPath(path) is TextureImporter imp && imp.textureType != TextureImporterType.Sprite)
+          {
+            imp.textureType = TextureImporterType.Sprite;
+            imp.mipmapEnabled = false;
+            imp.SaveAndReimport();
+          }
+        }
+      }
+
+      var so = new SerializedObject(screen);
+      void Fill(string pagesField, int[] panels)
+      {
+        var pages = so.FindProperty(pagesField);
+        for (var p = 0; p < pages.arraySize && p < panels.Length; p++)
+        {
+          var arts = pages.GetArrayElementAtIndex(p).FindPropertyRelative("arts");
+          arts.arraySize = 2;
+          string[] ids = { "prince", "princess" };
+          string[] files = { "story_boy", "story_girl" };
+          for (var k = 0; k < 2; k++)
+          {
+            var entry = arts.GetArrayElementAtIndex(k);
+            entry.FindPropertyRelative("characterId").stringValue = ids[k];
+            entry.FindPropertyRelative("art").objectReferenceValue = LoadArt(StoryArtDir, $"{files[k]}_{panels[p]}");
+          }
+        }
+      }
+      Fill("_storyPages", new[] { 1, 2, 3, 4 });
+      Fill("_remeasurePages", new[] { 3, 2, 4 });
+      so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>보호자 설정 게임 탭에 "양치 기준" 줄 (측정값 + 다시 재기). 이미 있으면 다시 만든다</summary>
+    private static void AddRemeasureRow(GuardianSettingsPanel settings)
+    {
+      var resetButton = new SerializedObject(settings).FindProperty("_resetButton").objectReferenceValue as Button;
+      if (resetButton == null)
+      {
+        Debug.LogWarning("[BrushGame] 보호자 설정의 초기화 버튼을 못 찾아 다시 재기 줄을 넣지 못했습니다.");
+        return;
+      }
+      var page = resetButton.transform.parent;
+      var oldRow = page.Find("RemeasureRow");
+      if (oldRow != null)
+      {
+        Undo.DestroyObjectImmediate(oldRow.gameObject);
+      }
+      var row = Node("RemeasureRow", page, new Vector2(0f, -210f), new Vector2(1000f, 220f));
+      Undo.RegisterCreatedObjectUndo(row.gameObject, "Add Remeasure Row");
+      Txt("Label", row, new Vector2(-130f, 50f), new Vector2(520f, 80f), "양치 기준", 44, Dark, TextAnchor.MiddleLeft, true);
+      var button = Btn("RemeasureButton", row, new Vector2(250f, 50f), new Vector2(260f, 110f), "다시 재기", Primary, Color.white, 40);
+      var note = Txt("CalibrationNote", row, new Vector2(0f, -50f), new Vector2(860f, 60f), "아직 안 쟀어요 (기본 기준 사용)", 28, Grey);
+      FontRoles.ApplyAll(row);
+      UiSkin.ApplyAll(row);
+      var so = new SerializedObject(settings);
+      so.FindProperty("_remeasureButton").objectReferenceValue = button;
+      so.FindProperty("_calibrationNote").objectReferenceValue = note;
+      so.ApplyModifiedProperties();
     }
 
     // ---------- 로비 버튼 자리 바꾸기 / 되돌리기 (팀원 PC에서도 MCP 메뉴 실행 한 번으로) ----------
