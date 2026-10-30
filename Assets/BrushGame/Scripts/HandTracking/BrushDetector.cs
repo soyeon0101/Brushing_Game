@@ -42,11 +42,36 @@ namespace BrushGame.HandTracking
 
     [Tooltip("손을 한두 프레임 놓쳐도 이 시간 동안은 보이는 것으로 본다 (빠른 동작 중 깜빡임 방지)")]
     [Min(0f)] public float visibleGraceSec = 0.3f;
+
+    [Tooltip("측정 전용 카운터의 반전 최소 폭 (손 크기 배수). 판정 기준과 상관없이 아이의 실제 왕복 폭·속도를 재려고 작게 둔다")]
+    [Min(0f)] public float measureAmplitude = 0.025f;
+
+    [Tooltip("과속을 측정 카운터 속도(MeasureRate)로 판정한다. 아이 측정값으로 maxRate를 정했을 때 켠다 (같은 카운터끼리 비교해야 맞다)")]
+    public bool tooFastByMeasureRate;
+
+    public void CopyFrom(BrushDetectorSettings other)
+    {
+      minHandSize = other.minHandSize;
+      emaAlpha = other.emaAlpha;
+      minAmplitude = other.minAmplitude;
+      windowSec = other.windowSec;
+      minRate = other.minRate;
+      maxRate = other.maxRate;
+      holdSec = other.holdSec;
+      tooFastSustainSec = other.tooFastSustainSec;
+      trackLostSec = other.trackLostSec;
+      maxMatchDistance = other.maxMatchDistance;
+      visibleGraceSec = other.visibleGraceSec;
+      measureAmplitude = other.measureAmplitude;
+      tooFastByMeasureRate = other.tooFastByMeasureRate;
+    }
   }
 
   /// <summary>
   ///   손바닥 중심의 왕복 흔들림으로 양치 여부와 과속을 판정한다. 플러그인에 의존하지 않는다.
   ///   새 프레임이 오면 ProcessFrame, 매 Update마다 Tick을 호출한다.
+  ///   판정과 별도로, 손마다 작은 폭(measureAmplitude) 카운터를 하나 더 돌려 아이의 실제 왕복 폭·속도를 Recorder에 기록한다.
+  ///   측정값이 지금 판정 기준에 끌려가지 않게 하려는 것 (판정 기준보다 작게 닦아도 기록된다).
   /// </summary>
   public sealed class BrushDetector
   {
@@ -76,6 +101,12 @@ namespace BrushGame.HandTracking
 
     /// <summary>지금까지 센 왕복(방향 반전) 횟수. 하나 늘 때마다 칫솔질 한 번으로 본다</summary>
     public int StrokeCount { get; private set; }
+
+    /// <summary>측정 카운터 기준 초당 반전 횟수 (가장 많이 움직인 손)</summary>
+    public float MeasureRate { get; private set; }
+
+    /// <summary>Begin ~ End 사이의 왕복 폭·속도 기록</summary>
+    public BrushMeasureRecorder Recorder { get; } = new BrushMeasureRecorder();
 
     /// <summary>마지막 프레임에서 minHandSize를 넘은 손 개수</summary>
     public int VisibleHandCount => _visibleCount;
@@ -135,6 +166,16 @@ namespace BrushGame.HandTracking
         {
           StrokeCount++;
         }
+
+        var measure = _settings.measureAmplitude * track.size;
+        if (track.mx.Add(track.pos.x, measure, now))
+        {
+          Recorder.AddSwing(track.mx.LastSwing / track.size);
+        }
+        if (track.my.Add(track.pos.y, measure, now))
+        {
+          Recorder.AddSwing(track.my.LastSwing / track.size);
+        }
         track.lastSeen = now;
         track.seenLastFrame = true;
       }
@@ -145,6 +186,7 @@ namespace BrushGame.HandTracking
       _now = now;
       HandVisible = now - _lastVisibleTime <= _settings.visibleGraceSec;
       var maxRate = 0f;
+      var measureRate = 0f;
       foreach (var t in _tracks)
       {
         if (!t.active)
@@ -159,8 +201,11 @@ namespace BrushGame.HandTracking
         }
         t.rate = Mathf.Max(t.x.Rate(now, _settings.windowSec), t.y.Rate(now, _settings.windowSec));
         maxRate = Mathf.Max(maxRate, t.rate);
+        measureRate = Mathf.Max(measureRate, Mathf.Max(t.mx.Rate(now, _settings.windowSec), t.my.Rate(now, _settings.windowSec)));
       }
       StrokeRate = maxRate;
+      MeasureRate = measureRate;
+      Recorder.SampleRate(HandVisible ? measureRate : 0f, now);
 
       if (StrokeRate > 0f && StrokeRate >= _settings.minRate)
       {
@@ -168,7 +213,9 @@ namespace BrushGame.HandTracking
       }
       IsBrushing = now - _lastBrushTime <= _settings.holdSec;
 
-      if (StrokeRate > 0f && StrokeRate >= _settings.maxRate)
+      // 빨리 문지르면 폭이 작아져 판정 카운터는 덜 센다. 아이 측정값 기준일 때는 측정과 같은 카운터로 비교한다
+      var fastRate = _settings.tooFastByMeasureRate ? MeasureRate : StrokeRate;
+      if (fastRate > 0f && fastRate >= _settings.maxRate)
       {
         if (_fastSince < 0f)
         {
@@ -225,6 +272,9 @@ namespace BrushGame.HandTracking
       public float rate;
       public readonly AxisReversalCounter x = new AxisReversalCounter();
       public readonly AxisReversalCounter y = new AxisReversalCounter();
+      // 측정 전용 (작은 폭)
+      public readonly AxisReversalCounter mx = new AxisReversalCounter();
+      public readonly AxisReversalCounter my = new AxisReversalCounter();
 
       public void Start(Vector2 center, float s)
       {
@@ -234,6 +284,8 @@ namespace BrushGame.HandTracking
         rate = 0f;
         x.Reset();
         y.Reset();
+        mx.Reset();
+        my.Reset();
       }
     }
 
@@ -253,6 +305,11 @@ namespace BrushGame.HandTracking
       private int _dir;       // 0: 아직 모름, 1: 증가 중, -1: 감소 중
       private float _extreme; // 현재 방향의 극점
       private float _min, _max;
+      private float _lastPeak; // 직전 반전 지점의 극점
+      private bool _hasPeak;
+
+      /// <summary>마지막 반전에서 직전 극점까지의 거리 (한 번 왕복한 폭). 첫 반전은 0</summary>
+      public float LastSwing { get; private set; }
 
       public void Reset()
       {
@@ -260,6 +317,8 @@ namespace BrushGame.HandTracking
         _stored = 0;
         _started = false;
         _dir = 0;
+        _hasPeak = false;
+        LastSwing = 0f;
       }
 
       /// <summary>이번 값으로 반전이 일어났으면 true</summary>
@@ -281,11 +340,15 @@ namespace BrushGame.HandTracking
             {
               _dir = -1;
               _extreme = v;
+              _lastPeak = _max;
+              _hasPeak = true;
             }
             else if (v - _min >= amplitude)
             {
               _dir = 1;
               _extreme = v;
+              _lastPeak = _min;
+              _hasPeak = true;
             }
             break;
           case 1:
@@ -295,6 +358,7 @@ namespace BrushGame.HandTracking
             }
             else if (_extreme - v >= amplitude)
             {
+              MarkPeak(_extreme);
               _dir = -1;
               _extreme = v;
               Push(now);
@@ -308,6 +372,7 @@ namespace BrushGame.HandTracking
             }
             else if (v - _extreme >= amplitude)
             {
+              MarkPeak(_extreme);
               _dir = 1;
               _extreme = v;
               Push(now);
@@ -330,6 +395,13 @@ namespace BrushGame.HandTracking
           }
         }
         return n / windowSec;
+      }
+
+      private void MarkPeak(float peak)
+      {
+        LastSwing = _hasPeak ? Mathf.Abs(peak - _lastPeak) : 0f;
+        _lastPeak = peak;
+        _hasPeak = true;
       }
 
       private void Push(float now)
