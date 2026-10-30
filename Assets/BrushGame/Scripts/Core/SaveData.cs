@@ -70,6 +70,25 @@ namespace BrushGame
   }
 
   /// <summary>
+  ///   이 아이의 양치 동작 측정값 (동화 측정, 이후 양치할 때마다 조금씩 갱신).
+  ///   판정 기준을 여기서 어떻게 정하는지는 BrushCalibrationRules.
+  /// </summary>
+  [Serializable]
+  public class BrushCalibration
+  {
+    [Tooltip("한 번이라도 제대로 쟀는지. false면 기본 판정 기준을 쓴다")]
+    public bool measured;
+    [Tooltip("한 번 왕복한 폭의 가운데값 (손 크기 배수, 0.1 = 손 크기의 10%)")]
+    public float swing;
+    [Tooltip("움직이는 동안의 초당 방향 전환 횟수 가운데값")]
+    public float rate;
+    [Tooltip("동화(또는 다시 재기)로 잰 시각 (yyyy-MM-dd HH:mm)")]
+    public string measuredAt;
+    [Tooltip("그 뒤 양치하면서 조금씩 갱신한 횟수")]
+    public int updates;
+  }
+
+  /// <summary>
   ///   기기에 저장되는 전체 기록.
   ///   필드를 새로 추가해도 예전 저장 파일은 그대로 읽히고, 새 필드만 기본값이 된다.
   /// </summary>
@@ -100,6 +119,11 @@ namespace BrushGame
     public bool partnerAwake;
     [Tooltip("아이가 지어 준 파트너 이름")]
     public string partnerName = "";
+
+    [Tooltip("양치 동작 측정값")]
+    public BrushCalibration brushCalibration = new BrushCalibration();
+    [Tooltip("첫 동화(세계관 + 양치 측정)를 끝까지 봤는지")]
+    public bool brushStorySeen;
 
     /// <summary>데려왔고, 양치 도장이 하나라도 있는데 아직 안 깨어났으면 깨우는 장면을 보여줄 차례</summary>
     public bool PartnerReadyToWake => partnerBrought && !partnerAwake && stickers.Count > 0;

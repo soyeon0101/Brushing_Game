@@ -51,7 +51,23 @@ namespace BrushGame.HandTracking
       _sb.Append("StrokeRate: ").Append(detector.StrokeRate.ToString("F1")).Append('\n')
         .Append("IsBrushing: ").Append(detector.IsBrushing ? "YES" : "no").Append('\n')
         .Append("IsTooFast: ").Append(detector.IsTooFast ? "YES" : "no").Append('\n')
-        .Append("HandVisible: ").Append(detector.HandVisible ? "YES" : "no");
+        .Append("HandVisible: ").Append(detector.HandVisible ? "YES" : "no").Append('\n');
+
+      // 실제로 쓰는 판정 기준 (아이 측정값이 있으면 기본값보다 느슨하다)
+      var active = _input.ActiveSettings;
+      _sb.Append("기준: 폭 ").Append(active.minAmplitude.ToString("F3"))
+        .Append(" / 닦기 ").Append(active.minRate.ToString("F1"))
+        .Append(" / 과속 ").Append(active.maxRate.ToString("F1")).Append('\n')
+        .Append("측정 속도: ").Append(detector.MeasureRate.ToString("F1"));
+      var recorder = detector.Recorder;
+      if (recorder.IsRecording)
+      {
+        var m = recorder.Current();
+        _sb.Append('\n').Append("측정 중: 폭 ").Append(m.swingMedian.ToString("F3"))
+          .Append(" / 속도 ").Append(m.rateMedian.ToString("F1"))
+          .Append(" / 왕복 ").Append(m.swingCount)
+          .Append(" / ").Append(m.movingSec.ToString("F1")).Append("초");
+      }
       _text = _sb.ToString();
     }
 

@@ -10,6 +10,7 @@ namespace BrushGame
   ///   손 인식으로는 어느 구역을 닦는지 알 수 없으므로, 안내한 구역을 닦는다고 보고 닦은 시간만큼 진행한다.
   ///   구역 타이머는 닦는 동안에만 줄어든다. 멈추면 진행만 멈추고 실패 처리는 하지 않는다.
   ///   입력 해석 우선순위: 손 안 보임 > 과속 > 양치 > 멈춤.
+  ///   판정 기준은 이 아이의 측정값(SaveData.brushCalibration)으로 정하고, 끝까지 닦으면 이번 판 값을 조금 섞어 갱신한다.
   /// </summary>
   public class BrushingScreen : ScreenBase
   {
@@ -183,6 +184,8 @@ namespace BrushGame
       {
         _photoBooth.Begin();
       }
+      _input.ApplyCalibration(SaveStore.Data.brushCalibration);
+      _input.BeginMeasure();
       _paused = false;
       _handLostT = 0f;
       _pauseOverlay.SetActive(false);
@@ -196,6 +199,8 @@ namespace BrushGame
 
     public override void OnHide()
     {
+      // 중간에 그만두면 이번 판 측정은 버린다 (끝까지 닦은 판만 반영)
+      _input.CancelMeasure();
       _pauseOverlay.SetActive(false);
       _handLostOverlay.SetActive(false);
       UndockCamera();
@@ -289,6 +294,11 @@ namespace BrushGame
           else if (_phaseT >= _zoomSec + _finishHoldSec)
           {
             _phase = Phase.Finished;
+            if (_input.EndMeasure(SaveStore.Data.brushCalibration, fresh: false))
+            {
+              _input.ApplyCalibration(SaveStore.Data.brushCalibration);
+              SaveStore.Save();
+            }
             Completed?.Invoke();
           }
           break;
