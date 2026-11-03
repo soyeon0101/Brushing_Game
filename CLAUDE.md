@@ -167,3 +167,13 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 - 저장: `save.json`의 `brushCalibration`(measured, swing, rate, measuredAt, updates), `brushStorySeen`.
 - 디버그 표시(`BrushDebugOverlay`를 켜면)에 지금 기준과 측정 중인 값이 나온다.
 - 동화 페이지 글·그림은 씬의 `BrushStory` 오브젝트 → `BrushStoryScreen`의 페이지 목록(페이지마다 캐릭터 id별 그림 `arts`)에서 바꾼다 (그림이 없으면 "그림 자리"). 씬에 넣기/다시 만들기: `BrushGame/Add Brush Story To Scene` (그림도 다시 넣는다).
+
+## 14. 양치 기록 서버 (Supabase) + 관리자 페이지
+
+- 양치 한 판이 끝나거나(끝까지) 중간에 그만두면 기록 한 줄을 Supabase 표 `brush_sessions`에 보낸다 (`BrushRecordUploader`, `BrushingScreen`의 "양치 기록" 부분).
+- 보내는 값: 익명 번호(`SaveData.recordId`, 이름·이메일 없음), 나이, 캐릭터, 끼니, 날짜, 끝까지 했는지, 한 판 시간, 닦은 시간, 땡땡이 시간(손은 보이는데 안 닦음), 손 안 보인 시간, 너무 빠름 시간·횟수, 방향 전환 수, 구역당 설정 시간, 구역별 닦은 시간, 아이별 기준(폭·속도), 입력(camera/keyboard), 앱 버전.
+- 시간은 구역을 닦는 단계에서만 센다 (구역 소개·줌 연출, 일시정지는 빼고). 한 판 시간(`session_sec`)만 연출 포함.
+- 인터넷이 없으면 `save.json`의 `pendingRecords`에 남겨 두고 다음 판이 끝날 때 다시 보낸다 (최대 50개).
+- 게임에 들어간 키는 공개용(publishable)이고, 서버 권한으로 "추가만" 가능하다 (읽기·수정·삭제 불가). **secret / service_role 키는 코드나 깃허브에 넣지 않는다.**
+- 끄기: 씬의 `BrushingScreen` 인스펙터 → `_sendRecords` 체크 해제.
+- 관리자 페이지: 저장소의 `Admin/index.html`을 브라우저로 연다. Supabase 관리자 계정(Authentication → Users)으로 로그인해야 기록이 보인다. 회원가입은 꺼 둔다(Allow new users to sign up 끔).
