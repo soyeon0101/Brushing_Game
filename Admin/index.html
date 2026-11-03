@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>양치 기록 관리자</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f2;
+    --surface: #fcfcfb;
+    --border: #e2e1dc;
+    --grid: #ecebe7;
+    --text-1: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #7a7974;
+    --accent: #2a78d6;
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --danger: #c23b3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111110;
+      --surface: #1a1a19;
+      --border: #2e2e2c;
+      --grid: #262624;
+      --text-1: #f0efec;
+      --text-2: #c3c2b7;
+      --text-3: #8f8e86;
+      --accent: #3987e5;
+      --s1: #3987e5;
+      --s2: #d95926;
+      --s3: #199e70;
+      --danger: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --border: #2e2e2c; --grid: #262624;
+    --text-1: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86; --accent: #3987e5;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --danger: #e66767;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-1);
+    font: 14px/1.5 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 12px; color: var(--text-3); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  button, input, select {
+    font: inherit; color: var(--text-1); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px;
+  }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  #login { max-width: 360px; margin: 12vh auto 0; display: grid; gap: 10px; }
+  #login .err { color: var(--danger); min-height: 1.5em; font-size: 13px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .filters label { display: flex; gap: 6px; align-items: center; color: var(--text-2); }
+  .chip { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; background: var(--grid); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi .v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--text-2); font-size: 13px; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { fill: var(--text-3); font-size: 11px; }
+  .tip {
+    position: fixed; pointer-events: none; background: var(--surface); color: var(--text-1);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; z-index: 10; white-space: nowrap;
+  }
+
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-2); font-weight: 500; font-size: 12px; }
+  tbody tr.click { cursor: pointer; }
+  tbody tr.click:hover { background: var(--grid); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--grid); color: var(--text-2); }
+  .empty { padding: 32px; text-align: center; color: var(--text-2); }
+</style>
+</head>
+<body>
+<main>
+  <!-- 로그인 -->
+  <form id="login" class="card" hidden>
+    <h1>양치 기록 관리자</h1>
+    <p class="muted" style="margin:0">Supabase에서 만든 관리자 계정으로 들어갑니다.</p>
+    <input id="email" type="email" placeholder="이메일" autocomplete="username" required>
+    <input id="password" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <button class="primary" type="submit">들어가기</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+
+  <!-- 대시보드 -->
+  <section id="dash" hidden>
+    <header>
+      <div>
+        <h1>양치 기록</h1>
+        <div class="small" id="updated"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="refresh">새로고침</button>
+        <button id="logout">나가기</button>
+      </div>
+    </header>
+
+    <div class="filters">
+      <label>기간
+        <select id="range">
+          <option value="7">최근 7일</option>
+          <option value="30" selected>최근 30일</option>
+          <option value="90">최근 90일</option>
+          <option value="0">전체</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="camOnly" checked> 카메라로 한 판만 (키보드·시험 기록 빼기)</label>
+      <span id="childChip"></span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>날짜별 양치 판 수</h2>
+        <div class="legend"><span><i style="background:var(--s1)"></i>끝까지 닦음</span><span><i style="background:var(--s2)"></i>중간에 그만둠</span></div>
+        <div id="chartDaily"></div>
+      </div>
+      <div class="card">
+        <h2>날짜별 한 판 평균 시간 구성 (초)</h2>
+        <div class="legend"><span><i style="background:var(--s1)"></i>닦은 시간</span><span><i style="background:var(--s2)"></i>땡땡이 (손은 보이는데 안 닦음)</span><span><i style="background:var(--s3)"></i>손 안 보임</span></div>
+        <div id="chartTime"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2>아이별 기록 <span class="small">줄을 누르면 그 아이 기록만 봅니다</span></h2>
+      <div class="table-wrap" id="children"></div>
+    </div>
+
+    <div class="card">
+      <h2>최근 양치 판 <span class="small">최근 50판</span></h2>
+      <div class="table-wrap" id="recent"></div>
+    </div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const SUPABASE_URL = "https://btnogymghqiyrslxutmo.supabase.co";
+// 공개용 키. 관리자 계정으로 로그인해야 기록을 읽을 수 있다 (서버 권한 설정)
+const SUPABASE_KEY = "sb_publishable_Qr4c7u1nqcuLUYYlYyr6ig_5tmZwtwo";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+let rows = [];
+let child = null;   // 선택한 아이 (player_id)
+
+// ---------- 로그인 ----------
+async function boot() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { showDash(); } else { $("login").hidden = false; }
+}
+$("login").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  if (error) { $("loginErr").textContent = "이메일이나 비밀번호가 맞지 않습니다."; return; }
+  $("login").hidden = true;
+  showDash();
+});
+$("logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+$("refresh").onclick = load;
+$("range").onchange = render;
+$("camOnly").onchange = render;
+
+function showDash() { $("dash").hidden = false; load(); }
+
+// ---------- 데이터 ----------
+async function load() {
+  const all = [];
+  const page = 1000;
+  for (let from = 0; ; from += page) {
+    const { data, error } = await sb.from("brush_sessions").select("*")
+      .order("created_at", { ascending: false }).range(from, from + page - 1);
+    if (error) { alert("기록을 못 읽었습니다: " + error.message); return; }
+    all.push(...data);
+    if (data.length < page) break;
+  }
+  rows = all;
+  $("updated").textContent = "불러온 시각 " + new Date().toLocaleString("ko-KR") + " · 전체 " + rows.length + "판";
+  render();
+}
+
+function filtered() {
+  const days = +$("range").value;
+  const since = days ? Date.now() - days * 86400000 : 0;
+  return rows.filter(r =>
+    new Date(r.created_at).getTime() >= since &&
+    (!$("camOnly").checked || r.input_kind === "camera") &&
+    (!child || r.player_id === child));
+}
+
+const sum = (a, f) => a.reduce((s, r) => s + (+f(r) || 0), 0);
+const avg = (a, f) => a.length ? sum(a, f) / a.length : 0;
+const sec = v => v >= 60 ? `${Math.floor(v / 60)}분 ${Math.round(v % 60)}초` : `${Math.round(v)}초`;
+const pct = v => `${Math.round(v * 100)}%`;
+const shortId = id => id.slice(0, 8);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- 그리기 ----------
+function render() {
+  const list = filtered();
+  $("childChip").innerHTML = child
+    ? `<span class="chip">아이 ${shortId(child)} 기록만 <button id="clearChild" style="padding:0 6px">✕</button></span>` : "";
+  if (child) $("clearChild").onclick = () => { child = null; render(); };
+
+  renderKpis(list);
+  renderDaily(list);
+  renderTime(list);
+  renderChildren(list);
+  renderRecent(list);
+}
+
+function renderKpis(list) {
+  const done = list.filter(r => r.completed);
+  const kpis = [
+    ["양치 판 수", list.length + "판"],
+    ["클리어율", list.length ? pct(done.length / list.length) : "-"],
+    ["한 판 평균 닦은 시간", list.length ? sec(avg(list, r => r.brushing_sec)) : "-"],
+    ["한 판 평균 땡땡이", list.length ? sec(avg(list, r => r.idle_sec)) : "-"],
+    ["한 판 평균 왕복 횟수", list.length ? Math.round(avg(list, r => r.strokes) / 2) + "번" : "-"],
+    ["너무 빠름이 뜬 판", list.length ? pct(list.filter(r => r.too_fast_count > 0).length / list.length) : "-"],
+  ];
+  $("kpis").innerHTML = kpis.map(([l, v]) => `<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
+}
+
+// 기간 안의 날짜 목록 (기록 없는 날도 0으로 보이게)
+function dayKeys(list) {
+  const days = +$("range").value;
+  const keys = [];
+  const end = new Date(); end.setHours(0, 0, 0, 0);
+  let start;
+  if (days) { start = new Date(end); start.setDate(end.getDate() - days + 1); }
+  else if (list.length) { start = new Date(Math.min(...list.map(r => new Date(r.played_on || r.created_at)))); start.setHours(0, 0, 0, 0); }
+  else return keys;
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) keys.push(dayKey(d));
+  return keys;
+}
+function dayKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function byDay(list) {
+  const m = new Map();
+  for (const r of list) {
+    const k = r.played_on || dayKey(new Date(r.created_at));
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  }
+  return m;
+}
+
+/** 쌓은 막대 그래프. series = [{name, color, get(rowsOfDay)}] */
+function stackedBars(el, keys, groups, series, fmt) {
+  if (!keys.length) { el.innerHTML = `<div class="empty">기록이 없습니다</div>`; return; }
+  const W = 560, H = 220, L = 36, R = 8, T = 8, B = 24;
+  const totals = keys.map(k => series.reduce((s, se) => s + se.get(groups.get(k) || []), 0));
+  const max = niceMax(Math.max(1, ...totals));
+  const bw = (W - L - R) / keys.length;
+  const barW = Math.max(2, Math.min(28, bw - 2));
+  const y = v => T + (H - T - B) * (1 - v / max);
+  let svg = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, yy = y(v);
+    svg += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/>`;
+    svg += `<text x="${L - 6}" y="${yy + 4}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const step = Math.ceil(keys.length / 8);
+  keys.forEach((k, i) => {
+    const x = L + i * bw + (bw - barW) / 2;
+    let base = 0;
+    series.forEach((se, si) => {
+      const v = se.get(groups.get(k) || []);
+      if (v <= 0) return;
+      const y0 = y(base), y1 = y(base + v);
+      const top = si === series.length - 1 || series.slice(si + 1).every(s => s.get(groups.get(k) || []) <= 0);
+      const h = Math.max(0, y0 - y1 - (base > 0 ? 2 : 0));
+      const r = top ? Math.min(4, barW / 2, h) : 0;
+      svg += `<path d="${roundTop(x, y1, barW, h, r)}" fill="${se.color}"/>`;
+      base += v;
+    });
+    // 마우스를 올릴 넓은 자리
+    svg += `<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-i="${i}"/>`;
+    if (i % step === 0) svg += `<text x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${k.slice(5).replace("-", "/")}</text>`;
+  });
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--text-3)"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${svg}</svg>`;
+  el.querySelectorAll("rect[data-i]").forEach(rect => {
+    rect.addEventListener("mousemove", e => {
+      const k = keys[+rect.dataset.i], g = groups.get(k) || [];
+      showTip(e, `<b>${k}</b><br>` + series.map(se =>
+        `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${se.color};margin-right:5px"></span>${se.name}: ${fmt(se.get(g))}`).join("<br>"));
+    });
+    rect.addEventListener("mouseleave", hideTip);
+  });
+}
+function roundTop(x, y, w, h, r) {
+  return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
+}
+function niceMax(v) {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+
+function renderDaily(list) {
+  const groups = byDay(list);
+  stackedBars($("chartDaily"), dayKeys(list), groups, [
+    { name: "끝까지 닦음", color: "var(--s1)", get: g => g.filter(r => r.completed).length },
+    { name: "중간에 그만둠", color: "var(--s2)", get: g => g.filter(r => !r.completed).length },
+  ], v => v + "판");
+}
+
+function renderTime(list) {
+  const groups = byDay(list);
+  stackedBars($("chartTime"), dayKeys(list), groups, [
+    { name: "닦은 시간", color: "var(--s1)", get: g => avg(g, r => r.brushing_sec) },
+    { name: "땡땡이", color: "var(--s2)", get: g => avg(g, r => r.idle_sec) },
+    { name: "손 안 보임", color: "var(--s3)", get: g => avg(g, r => r.hand_lost_sec) },
+  ], v => Math.round(v) + "초");
+}
+
+function renderChildren(list) {
+  const m = new Map();
+  for (const r of list) { if (!m.has(r.player_id)) m.set(r.player_id, []); m.get(r.player_id).push(r); }
+  if (!m.size) { $("children").innerHTML = `<div class="empty">기록이 없습니다</div>`; return; }
+  const items = [...m.entries()].map(([id, g]) => ({
+    id, g, last: g.reduce((a, r) => r.created_at > a ? r.created_at : a, ""),
+  })).sort((a, b) => b.last.localeCompare(a.last));
+  $("children").innerHTML = `<table><thead><tr>
+    <th>아이 번호</th><th>나이</th><th>판 수</th><th>클리어율</th><th>평균 닦은 시간</th><th>평균 땡땡이</th><th>평균 손 안 보임</th><th>평균 왕복</th><th>너무 빠름 횟수</th><th>아이별 기준 (폭 / 속도)</th><th>마지막 양치</th>
+  </tr></thead><tbody>${items.map(({ id, g, last }) => {
+    const latest = g.find(r => r.created_at === last);
+    const calib = latest.calib_rate ? `${Math.round(latest.calib_swing * 100)}% / ${(+latest.calib_rate).toFixed(1)}번` : "재기 전";
+    return `<tr class="click" data-id="${esc(id)}">
+      <td><span class="tag">${shortId(id)}</span></td>
+      <td>${esc(latest.age) || "-"}세</td>
+      <td>${g.length}</td>
+      <td>${pct(g.filter(r => r.completed).length / g.length)}</td>
+      <td>${sec(avg(g, r => r.brushing_sec))}</td>
+      <td>${sec(avg(g, r => r.idle_sec))}</td>
+      <td>${sec(avg(g, r => r.hand_lost_sec))}</td>
+      <td>${Math.round(avg(g, r => r.strokes) / 2)}번</td>
+      <td>${sum(g, r => r.too_fast_count)}</td>
+      <td>${calib}</td>
+      <td>${new Date(last).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+    </tr>`;
+  }).join("")}</tbody></table>`;
+  $("children").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => { child = tr.dataset.id; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+}
+
+function renderRecent(list) {
+  const top = list.slice(0, 50);
+  if (!top.length) { $("recent").innerHTML = `<div class="empty">기록이 없습니다</div>`; return; }
+  $("recent").innerHTML = `<table><thead><tr>
+    <th>시각</th><th>아이</th><th>끼니</th><th>결과</th><th>한 판 시간</th><th>닦은 시간</th><th>땡땡이</th><th>손 안 보임</th><th>왕복</th><th>너무 빠름</th><th>구역별 닦은 시간 (초)</th><th>입력</th>
+  </tr></thead><tbody>${top.map(r => `<tr>
+      <td>${new Date(r.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+      <td><span class="tag">${shortId(r.player_id)}</span></td>
+      <td>${esc(r.meal)}</td>
+      <td>${r.completed ? "끝까지" : "그만둠"}</td>
+      <td>${sec(r.session_sec)}</td>
+      <td>${sec(r.brushing_sec)}</td>
+      <td>${sec(r.idle_sec)}</td>
+      <td>${sec(r.hand_lost_sec)}</td>
+      <td>${Math.round(r.strokes / 2)}번</td>
+      <td>${r.too_fast_count ? `${r.too_fast_count}번 (${Math.round(r.too_fast_sec)}초)` : "-"}</td>
+      <td>${(r.zone_brush_sec || []).map(v => Math.round(v)).join(" · ")}</td>
+      <td>${esc(r.input_kind)}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+// ---------- 말풍선 ----------
+function showTip(e, html) {
+  const t = $("tip");
+  t.innerHTML = html; t.style.display = "block";
+  const w = t.offsetWidth, h = t.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+function hideTip() { $("tip").style.display = "none"; }
+
+boot();
+</script>
+</body>
+</html>
