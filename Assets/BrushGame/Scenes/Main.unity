@@ -4123,7 +4123,7 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 44
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -10298,7 +10298,7 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 44
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -11476,7 +11476,7 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 56
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -16146,9 +16146,9 @@ Camera:
   m_LensShift: {x: 0, y: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0
+    x: 0.34179688
     y: 0
-    width: 1
+    width: 0.31640625
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
@@ -17351,6 +17351,7 @@ MonoBehaviour:
   _tooFastMultiplier: 0.4
   _handLostDelay: 1.5
   _strokesPerBurst: 4
+  _sendRecords: 1
   _zoomScale: 2.3
   _focusY: 260
   _battleOffset: 390
@@ -17940,7 +17941,7 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 50
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
@@ -38294,7 +38295,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: "\uC544\uC9C1 \uC548 \uC7C0\uC5B4\uC694 (\uAE30\uBCF8 \uAE30\uC900 \uC0AC\uC6A9)"
+  m_Text: "\uC544\uC9C1 \uCE21\uC815\uD558\uC9C0 \uC54A\uC558\uC5B4\uC694 (\uAE30\uBCF8
+    \uAE30\uC900 \uC0AC\uC6A9)"
 --- !u!1 &1088335216
 GameObject:
   m_ObjectHideFlags: 0
@@ -72447,7 +72449,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: "\uB2E4\uC2DC \uC7AC\uAE30"
+  m_Text: "\uC7AC\uCE21\uC815"
 --- !u!222 &2115942509
 CanvasRenderer:
   m_ObjectHideFlags: 0

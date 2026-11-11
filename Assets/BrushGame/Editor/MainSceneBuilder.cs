@@ -664,8 +664,8 @@ namespace BrushGame.EditorTools
       var row = Node("RemeasureRow", page, new Vector2(0f, -210f), new Vector2(1000f, 220f));
       Undo.RegisterCreatedObjectUndo(row.gameObject, "Add Remeasure Row");
       Txt("Label", row, new Vector2(-130f, 50f), new Vector2(520f, 80f), "양치 기준", 44, Dark, TextAnchor.MiddleLeft, true);
-      var button = Btn("RemeasureButton", row, new Vector2(250f, 50f), new Vector2(260f, 110f), "다시 재기", Primary, Color.white, 40);
-      var note = Txt("CalibrationNote", row, new Vector2(0f, -50f), new Vector2(860f, 60f), "아직 안 쟀어요 (기본 기준 사용)", 28, Grey);
+      var button = Btn("RemeasureButton", row, new Vector2(250f, 50f), new Vector2(260f, 110f), "재측정", Primary, Color.white, 40);
+      var note = Txt("CalibrationNote", row, new Vector2(0f, -50f), new Vector2(860f, 60f), "아직 측정하지 않았어요 (기본 기준 사용)", 28, Grey);
       FontRoles.ApplyAll(row);
       UiSkin.ApplyAll(row);
       var so = new SerializedObject(settings);
