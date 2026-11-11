@@ -1769,9 +1769,11 @@ namespace BrushGame.EditorTools
 
     private const string PrivacyTerms =
       "- 수집 항목: 보호자 이름과 이메일, 아이 나이와 닉네임, 양치 기록\n" +
-      "- 이용 목적: 회원 확인, 양치 기록과 칭찬 도장 관리\n" +
-      "- 보관 장소: 이 기기 안에만 저장 (서버로 보내지 않아요)\n" +
-      "- 보관 기간: 보호자 설정의 '초기화' 또는 앱 삭제 시까지\n" +
+      "- 이용 목적: 회원 확인, 양치 기록과 칭찬 도장 관리, 서비스 개선\n" +
+      "- 보관 장소: 이름, 이메일, 닉네임은 이 기기 안에만 저장해요\n" +
+      "- 양치 기록(나이, 양치 시간 등)은 이름 없이 익명 번호로 서버에 보내요\n" +
+      "- 보관 기간: 기기 안 정보는 보호자 설정의 '초기화' 또는 앱 삭제 시까지\n" +
+      "  (서버로 보낸 익명 기록은 초기화해도 지워지지 않아요)\n" +
       "- 동의하지 않으면 게임을 시작할 수 없어요";
 
     private const string CameraTerms =
@@ -1791,13 +1793,13 @@ namespace BrushGame.EditorTools
 
       var all = CheckRow("AgreeAll", c, new Vector2(0f, 610f), new Vector2(960f, 130f), "전체 동의하기", 50, Color.white, out var allMark);
 
-      var privacyPanel = Img("PrivacyPanel", c, new Vector2(0f, 290f), new Vector2(960f, 440f), Color.white, _rounded);
-      var privacy = CheckRow("AgreePrivacy", privacyPanel.transform, new Vector2(0f, 155f), new Vector2(920f, 110f), "[필수] 개인정보 수집·이용 동의", 40, Lavender, out var privacyMark);
-      Txt("Terms", privacyPanel.transform, new Vector2(0f, -65f), new Vector2(880f, 290f), PrivacyTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
+      var privacyPanel = Img("PrivacyPanel", c, new Vector2(0f, 235f), new Vector2(960f, 550f), Color.white, _rounded);
+      var privacy = CheckRow("AgreePrivacy", privacyPanel.transform, new Vector2(0f, 210f), new Vector2(920f, 110f), "[필수] 개인정보 수집·이용 동의", 40, Lavender, out var privacyMark);
+      Txt("Terms", privacyPanel.transform, new Vector2(0f, -55f), new Vector2(880f, 380f), PrivacyTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
 
-      var cameraPanel = Img("CameraPanel", c, new Vector2(0f, -230f), new Vector2(960f, 560f), Color.white, _rounded);
-      var camera = CheckRow("AgreeCamera", cameraPanel.transform, new Vector2(0f, 215f), new Vector2(920f, 110f), "[필수] 카메라 권한 이용 동의", 40, Lavender, out var cameraMark);
-      Txt("Terms", cameraPanel.transform, new Vector2(0f, -65f), new Vector2(880f, 410f), CameraTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
+      var cameraPanel = Img("CameraPanel", c, new Vector2(0f, -270f), new Vector2(960f, 420f), Color.white, _rounded);
+      var camera = CheckRow("AgreeCamera", cameraPanel.transform, new Vector2(0f, 145f), new Vector2(920f, 110f), "[필수] 카메라 권한 이용 동의", 40, Lavender, out var cameraMark);
+      Txt("Terms", cameraPanel.transform, new Vector2(0f, -60f), new Vector2(880f, 260f), CameraTerms, 36, Dark, TextAnchor.UpperLeft).lineSpacing = 1.15f;
 
       var next = Btn("NextButton", c, new Vector2(0f, -810f), new Vector2(760f, 150f), "동의하고 다음", Primary, Color.white, 56);
       var back = BackButton(c);

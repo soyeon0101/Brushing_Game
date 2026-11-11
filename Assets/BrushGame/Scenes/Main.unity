@@ -1883,7 +1883,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 155}
+  m_AnchoredPosition: {x: 0, y: 210}
   m_SizeDelta: {x: 920, y: 110}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &42088775
@@ -6455,7 +6455,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 225091450}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -6464,8 +6464,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -65}
-  m_SizeDelta: {x: 880, y: 290}
+  m_AnchoredPosition: {x: 0, y: -55}
+  m_SizeDelta: {x: 880, y: 380}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &225091452
 MonoBehaviour:
@@ -6503,11 +6503,16 @@ MonoBehaviour:
   m_Text: "- \uC218\uC9D1 \uD56D\uBAA9: \uBCF4\uD638\uC790 \uC774\uB984\uACFC \uC774\uBA54\uC77C,
     \uC544\uC774 \uB098\uC774\uC640 \uB2C9\uB124\uC784, \uC591\uCE58 \uAE30\uB85D\n-
     \uC774\uC6A9 \uBAA9\uC801: \uD68C\uC6D0 \uD655\uC778, \uC591\uCE58 \uAE30\uB85D\uACFC
-    \uCE6D\uCC2C \uB3C4\uC7A5 \uAD00\uB9AC\n- \uBCF4\uAD00 \uC7A5\uC18C: \uC774 \uAE30\uAE30
-    \uC548\uC5D0\uB9CC \uC800\uC7A5 (\uC11C\uBC84\uB85C \uBCF4\uB0B4\uC9C0 \uC54A\uC544\uC694)\n-
-    \uBCF4\uAD00 \uAE30\uAC04: \uBCF4\uD638\uC790 \uC124\uC815\uC758 '\uCD08\uAE30\uD654'
-    \uB610\uB294 \uC571 \uC0AD\uC81C \uC2DC\uAE4C\uC9C0\n- \uB3D9\uC758\uD558\uC9C0
-    \uC54A\uC73C\uBA74 \uAC8C\uC784\uC744 \uC2DC\uC791\uD560 \uC218 \uC5C6\uC5B4\uC694"
+    \uCE6D\uCC2C \uB3C4\uC7A5 \uAD00\uB9AC, \uC11C\uBE44\uC2A4 \uAC1C\uC120\n- \uBCF4\uAD00
+    \uC7A5\uC18C: \uC774\uB984, \uC774\uBA54\uC77C, \uB2C9\uB124\uC784\uC740 \uC774
+    \uAE30\uAE30 \uC548\uC5D0\uB9CC \uC800\uC7A5\uD574\uC694\n- \uC591\uCE58 \uAE30\uB85D(\uB098\uC774,
+    \uC591\uCE58 \uC2DC\uAC04 \uB4F1)\uC740 \uC774\uB984 \uC5C6\uC774 \uC775\uBA85
+    \uBC88\uD638\uB85C \uC11C\uBC84\uC5D0 \uBCF4\uB0B4\uC694\n- \uBCF4\uAD00 \uAE30\uAC04:
+    \uAE30\uAE30 \uC548 \uC815\uBCF4\uB294 \uBCF4\uD638\uC790 \uC124\uC815\uC758
+    '\uCD08\uAE30\uD654' \uB610\uB294 \uC571 \uC0AD\uC81C \uC2DC\uAE4C\uC9C0\n  (\uC11C\uBC84\uB85C
+    \uBCF4\uB0B8 \uC775\uBA85 \uAE30\uB85D\uC740 \uCD08\uAE30\uD654\uD574\uB3C4 \uC9C0\uC6CC\uC9C0\uC9C0
+    \uC54A\uC544\uC694)\n- \uB3D9\uC758\uD558\uC9C0 \uC54A\uC73C\uBA74 \uAC8C\uC784\uC744
+    \uC2DC\uC791\uD560 \uC218 \uC5C6\uC5B4\uC694"
 --- !u!222 &225091453
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -17623,8 +17628,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -230}
-  m_SizeDelta: {x: 960, y: 560}
+  m_AnchoredPosition: {x: 0, y: -270}
+  m_SizeDelta: {x: 960, y: 420}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &525446361
 MonoBehaviour:
@@ -36306,7 +36311,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 215}
+  m_AnchoredPosition: {x: 0, y: 145}
   m_SizeDelta: {x: 920, y: 110}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1039972419
@@ -54913,8 +54918,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 290}
-  m_SizeDelta: {x: 960, y: 440}
+  m_AnchoredPosition: {x: 0, y: 235}
+  m_SizeDelta: {x: 960, y: 550}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1609844657
 MonoBehaviour:
@@ -72741,8 +72746,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -65}
-  m_SizeDelta: {x: 880, y: 410}
+  m_AnchoredPosition: {x: 0, y: -60}
+  m_SizeDelta: {x: 880, y: 260}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2120879305
 MonoBehaviour:
