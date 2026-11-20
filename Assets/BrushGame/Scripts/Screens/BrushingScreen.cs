@@ -104,6 +104,10 @@ namespace BrushGame
     [Tooltip("요정의 마법 한 바퀴(반짝이 한 번)에 필요한 칫솔질 방향 전환 횟수. 4 = 왕복 2번")]
     [SerializeField, Min(1)] private int _strokesPerBurst = 4;
 
+    [Header("양치 기록")]
+    [Tooltip("한 판이 끝나거나 그만둘 때 양치 기록을 서버(관리자 페이지)로 보낸다. 끄면 보내지 않는다")]
+    [SerializeField] private bool _sendRecords = true;
+
     [Header("줌 연출")]
     [SerializeField, Min(1f)] private float _zoomScale = 2.3f;
     [Tooltip("확대한 구역 가운데가 올 높이. 위 구역은 +, 아래 구역은 - 로 쓴다")]
@@ -132,6 +136,8 @@ namespace BrushGame
     private float _nextLineTime;
     private int _idleLineIndex;
     private int _cheerLineIndex;
+    private BrushRecord _record;
+    private bool _wasTooFast;
 
     private ArtSwap _faceArt, _mouthTopArt, _mouthBottomArt;
     private Vector2[] _zoneHomes;
@@ -186,6 +192,7 @@ namespace BrushGame
       }
       _input.ApplyCalibration(SaveStore.Data.brushCalibration);
       _input.BeginMeasure();
+      StartRecord();
       _paused = false;
       _handLostT = 0f;
       _pauseOverlay.SetActive(false);
@@ -201,6 +208,7 @@ namespace BrushGame
     {
       // 중간에 그만두면 이번 판 측정은 버린다 (끝까지 닦은 판만 반영)
       _input.CancelMeasure();
+      SendRecord(completed: false);
       _pauseOverlay.SetActive(false);
       _handLostOverlay.SetActive(false);
       UndockCamera();
@@ -258,6 +266,10 @@ namespace BrushGame
         return;
       }
       _phaseT += Time.deltaTime;
+      if (_record != null)
+      {
+        _record.session_sec += Time.deltaTime;
+      }
 
       switch (_phase)
       {
@@ -299,6 +311,7 @@ namespace BrushGame
               _input.ApplyCalibration(SaveStore.Data.brushCalibration);
               SaveStore.Save();
             }
+            SendRecord(completed: true);
             Completed?.Invoke();
           }
           break;
@@ -360,6 +373,10 @@ namespace BrushGame
         {
           _zoneStrokes += strokes - _lastStrokes;
           _battle.SetSwingProgress(_zoneStrokes / (float)_strokesPerBurst);
+          if (_record != null)
+          {
+            _record.strokes += strokes - _lastStrokes;
+          }
         }
         _lastStrokes = strokes;
       }
@@ -372,6 +389,7 @@ namespace BrushGame
       }
       _idleT = visible && !brushing ? _idleT + dt : 0f;
       var idle = _idleT >= _idleLineDelay;
+      CountRecord(dt, visible, brushing, tooFast);
 
       _battle.SetHp(1f - _progress[_zone]);
       _battle.SetIdle(idle);
@@ -423,6 +441,83 @@ namespace BrushGame
     {
       _phase = phase;
       _phaseT = 0f;
+    }
+
+    // ---------- 양치 기록 (관리자 페이지용) ----------
+
+    private void StartRecord()
+    {
+      var data = SaveStore.Data;
+      var now = DateTime.Now;
+      _wasTooFast = false;
+      _record = new BrushRecord
+      {
+        player_id = data.RecordId,
+        age = data.profile.age,
+        character_id = data.profile.characterId,
+        meal = SaveData.SlotName(SaveData.SlotAt(now)),
+        played_on = SaveData.DateKey(now),
+        zone_seconds = _zoneSeconds,
+        input_kind = _input.UsingKeyboard ? "keyboard" : "camera",
+        app_version = Application.version,
+      };
+    }
+
+    /// <summary>
+    ///   구역을 닦는 동안만 센다 (구역 소개·줌 연출 시간은 빼고, 일시정지 중에는 Update가 멈춰서 안 센다).
+    ///   땡땡이 = 손은 보이는데 닦지 않은 시간, 손 안 보임은 따로 센다.
+    /// </summary>
+    private void CountRecord(float dt, bool visible, bool brushing, bool tooFast)
+    {
+      if (_record == null)
+      {
+        return;
+      }
+      if (!visible)
+      {
+        _record.hand_lost_sec += dt;
+      }
+      else if (brushing)
+      {
+        _record.brushing_sec += dt;
+        _record.zone_brush_sec[_zone] += dt;
+      }
+      else
+      {
+        _record.idle_sec += dt;
+      }
+      if (tooFast)
+      {
+        _record.too_fast_sec += dt;
+        if (!_wasTooFast)
+        {
+          _record.too_fast_count++;
+        }
+      }
+      _wasTooFast = tooFast;
+    }
+
+    /// <summary>끝까지 닦았거나 중간에 그만뒀을 때 한 번만 보낸다</summary>
+    private void SendRecord(bool completed)
+    {
+      if (_record == null)
+      {
+        return;
+      }
+      var record = _record;
+      _record = null;
+      if (!_sendRecords)
+      {
+        return;
+      }
+      record.completed = completed;
+      var calibration = SaveStore.Data.brushCalibration;
+      if (calibration.measured)
+      {
+        record.calib_swing = calibration.swing;
+        record.calib_rate = calibration.rate;
+      }
+      BrushRecordUploader.Send(record);
     }
 
     // ---------- 안내 문구 ----------

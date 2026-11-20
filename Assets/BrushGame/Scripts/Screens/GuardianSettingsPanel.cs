@@ -231,7 +231,7 @@ namespace BrushGame
         var c = SaveStore.Data.brushCalibration;
         _calibrationNote.text = c != null && c.measured
           ? $"왕복 폭: 손 크기의 {c.swing * 100f:F0}%  ·  속도: 초당 {c.rate:F1}번"
-          : "아직 안 쟀어요 (기본 기준 사용)";
+          : "아직 측정하지 않았어요 (기본 기준 사용)";
       }
     }
 

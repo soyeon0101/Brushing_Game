@@ -125,6 +125,24 @@ namespace BrushGame
     [Tooltip("첫 동화(세계관 + 양치 측정)를 끝까지 봤는지")]
     public bool brushStorySeen;
 
+    [Tooltip("양치 기록 서버에 보내는 익명 번호 (이름·이메일 대신, 초기화하면 새로 만든다)")]
+    public string recordId = "";
+    [Tooltip("못 보낸 양치 기록 (JSON 한 줄씩, 다음에 다시 보낸다)")]
+    public List<string> pendingRecords = new List<string>();
+
+    /// <summary>익명 번호. 없으면 지금 만든다 (저장은 부르는 쪽에서)</summary>
+    public string RecordId
+    {
+      get
+      {
+        if (string.IsNullOrEmpty(recordId))
+        {
+          recordId = Guid.NewGuid().ToString();
+        }
+        return recordId;
+      }
+    }
+
     /// <summary>데려왔고, 양치 도장이 하나라도 있는데 아직 안 깨어났으면 깨우는 장면을 보여줄 차례</summary>
     public bool PartnerReadyToWake => partnerBrought && !partnerAwake && stickers.Count > 0;
 

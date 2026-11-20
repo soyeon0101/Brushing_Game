@@ -136,7 +136,8 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 ## 12. 보호자 동의·회원가입, 양치 사진 액자
 
 - 첫 실행: 타이틀 → **보호자 동의**([필수] 개인정보, [필수] 카메라) → **회원가입**(보호자 이름·이메일) → 나이 → 캐릭터 → 닉네임. 동의 기록이 없는 예전 저장 파일은 동의·가입만 받고 로비로 간다.
-- 서버는 없다. 가입 정보는 `save.json`, 사진은 `persistentDataPath/Photos/{날짜}_{끼니}/brush_1~4.png`에만 저장한다. **사진을 서버로 보내는 코드를 넣지 않는다** (동의 화면에 그렇게 명시함). 보호자 설정의 초기화는 사진까지 지운다.
+- 가입 정보(보호자 이름·이메일, 닉네임)는 `save.json`, 사진은 `persistentDataPath/Photos/{날짜}_{끼니}/brush_1~4.png`에만 저장한다. **가입 정보와 사진을 서버로 보내는 코드를 넣지 않는다** (동의 화면에 그렇게 명시함). 보호자 설정의 초기화는 사진까지 지운다.
+- 서버로 보내는 건 이름 없는 양치 기록뿐이다 (14장). 동의 화면에 "익명 번호로 서버에 보낸다, 초기화해도 서버 기록은 지워지지 않는다"고 적혀 있으므로, 보내는 항목을 바꾸면 동의 문구(`MainSceneBuilder.PrivacyTerms`와 씬의 `Consent` 화면)도 같이 고친다.
 - 양치 중 구역마다 진행도 50%에서 한 장씩 찍는다 (`PhotoBooth`, 카메라 작은 창에 번쩍임). 카메라 없이 키보드로 하면 안 찍히고 액자 칸은 캐릭터 그림으로 채운다.
 - 치료 후: 완료 → **사진 액자** → 스티커판 → 지도. 액자 4종은 사진 배치·모양까지 다르다: 딸기우유(하트 4), 반짝우주(크기 다른 동그라미 지그재그), 민트거품(큰 사진 1 + 방울 3), 무지개(테이프 붙인 폴라로이드 콜라주). 고른 액자는 기억한다.
 - 씬에 넣기/다시 만들기: `BrushGame/Add Signup And Photo Frame To Scene` (양치 화면은 다시 만들지 않는다). 액자 추가·배치 수정은 `MainSceneBuilder.FrameThemes` (사진 칸 4개의 위치·크기·기울기·모양).
@@ -167,3 +168,13 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 - 저장: `save.json`의 `brushCalibration`(measured, swing, rate, measuredAt, updates), `brushStorySeen`.
 - 디버그 표시(`BrushDebugOverlay`를 켜면)에 지금 기준과 측정 중인 값이 나온다.
 - 동화 페이지 글·그림은 씬의 `BrushStory` 오브젝트 → `BrushStoryScreen`의 페이지 목록(페이지마다 캐릭터 id별 그림 `arts`)에서 바꾼다 (그림이 없으면 "그림 자리"). 씬에 넣기/다시 만들기: `BrushGame/Add Brush Story To Scene` (그림도 다시 넣는다).
+
+## 14. 양치 기록 서버 (Supabase) + 관리자 페이지
+
+- 양치 한 판이 끝나거나(끝까지) 중간에 그만두면 기록 한 줄을 Supabase 표 `brush_sessions`에 보낸다 (`BrushRecordUploader`, `BrushingScreen`의 "양치 기록" 부분).
+- 보내는 값: 익명 번호(`SaveData.recordId`, 이름·이메일 없음), 나이, 캐릭터, 끼니, 날짜, 끝까지 했는지, 한 판 시간, 닦은 시간, 땡땡이 시간(손은 보이는데 안 닦음), 손 안 보인 시간, 너무 빠름 시간·횟수, 방향 전환 수, 구역당 설정 시간, 구역별 닦은 시간, 아이별 기준(폭·속도), 입력(camera/keyboard), 앱 버전.
+- 시간은 구역을 닦는 단계에서만 센다 (구역 소개·줌 연출, 일시정지는 빼고). 한 판 시간(`session_sec`)만 연출 포함.
+- 인터넷이 없으면 `save.json`의 `pendingRecords`에 남겨 두고 다음 판이 끝날 때 다시 보낸다 (최대 50개).
+- 게임에 들어간 키는 공개용(publishable)이고, 서버 권한으로 "추가만" 가능하다 (읽기·수정·삭제 불가). **secret / service_role 키는 코드나 깃허브에 넣지 않는다.**
+- 끄기: 씬의 `BrushingScreen` 인스펙터 → `_sendRecords` 체크 해제.
+- 관리자 페이지: 저장소의 `Admin/index.html`을 브라우저로 연다. Supabase 관리자 계정(Authentication → Users)으로 로그인해야 기록이 보인다. 회원가입은 꺼 둔다(Allow new users to sign up 끔).
