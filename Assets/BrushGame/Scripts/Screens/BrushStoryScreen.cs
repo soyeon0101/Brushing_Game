@@ -110,6 +110,8 @@ namespace BrushGame
     private bool _measuring;
     private bool _turning;
     private float _gaugeWidth = -1f;
+    private bool _saidLost;
+    private bool _saidIdle;
 
     /// <summary>끝까지 넘겼을 때. 인자 = 이번에 측정값을 새로 저장했는지</summary>
     public event Action<bool> Finished;
@@ -186,10 +188,24 @@ namespace BrushGame
         _idleT += Time.deltaTime;
       }
       SetGauge(_pageT / page.brushSec);
-      _guide.text = _lostT >= 1f ? _handLostLine : _idleT >= _idleHintSec ? _idleLine : page.guide;
+      var lost = _lostT >= 1f;
+      var idle = !lost && _idleT >= _idleHintSec;
+      _guide.text = lost ? _handLostLine : idle ? _idleLine : page.guide;
       _skipButton.gameObject.SetActive(_idleT >= _skipAfterSec);
+      // 안내가 바뀌는 순간에 한 번 (같은 말은 5초 동안 다시 안 함)
+      if (lost && !_saidLost)
+      {
+        SoundManager.Voice("story_lost", SoundManager.Say.IfFree, 5f);
+      }
+      if (idle && !_saidIdle)
+      {
+        SoundManager.Voice("story_idle", SoundManager.Say.IfFree, 5f);
+      }
+      _saidLost = lost;
+      _saidIdle = idle;
 
-      if (_pageT >= page.brushSec)
+      // 이야기를 다 들려준 뒤에 넘긴다 (음성 안내를 끄면 바로)
+      if (_pageT >= page.brushSec && !SoundManager.VoiceBusy)
       {
         Advance();
       }
@@ -255,6 +271,7 @@ namespace BrushGame
     {
       _turning = true;
       _skipButton.gameObject.SetActive(false);
+      SoundManager.Sfx("page_turn");
       for (var t = 0f; t < _turnSec; t += Time.deltaTime)
       {
         _card.alpha = 1f - t / _turnSec;
@@ -280,6 +297,19 @@ namespace BrushGame
         _input.BeginMeasure();
       }
       ShowContent(page, $"{index + 1} / {_pages.Length}");
+      // 동화: 내레이터가 읽고 → 로봇 친구가 할 일을 알려 준다. 다시 재기: 로봇 친구 (음성 ID는 Docs/tts_script.csv)
+      if (_remeasure)
+      {
+        SoundManager.Voice($"remeasure_{index + 1}", SoundManager.Say.Interrupt);
+      }
+      else
+      {
+        SoundManager.Voice($"story_{index + 1}", SoundManager.Say.Interrupt);
+        if (page.brushSec > 0f)
+        {
+          SoundManager.Voice($"story_{index + 1}_hint", SoundManager.Say.Queue);
+        }
+      }
     }
 
     private void ShowResult()
@@ -292,6 +322,7 @@ namespace BrushGame
         arts = _pages[_pages.Length - 1].arts,
       };
       ShowContent(_resultPage, "");
+      SoundManager.Voice(Measured ? "remeasure_ok" : "remeasure_fail", SoundManager.Say.Interrupt);
     }
 
     private void ShowContent(Page page, string count)
@@ -299,6 +330,8 @@ namespace BrushGame
       _pageT = 0f;
       _idleT = 0f;
       _lostT = 0f;
+      _saidLost = false;
+      _saidIdle = false;
       _text.text = string.Format(page.text ?? "", _nickname);
       _pageCount.text = count;
       var art = page.ArtFor(_characterId);

@@ -42,7 +42,13 @@ namespace BrushGame
     private float _t = -1f;
     private SaveData _data;
     private StickerRecord _newSticker;
+    private bool _stampSounded;
     private int _weekOffset;
+
+    public override void OnShow()
+    {
+      SoundManager.Sfx("board_open", 0.8f);
+    }
 
     public event Action BackPressed;
 
@@ -102,6 +108,7 @@ namespace BrushGame
       {
         _stampFx.gameObject.SetActive(false);
       }
+      _stampSounded = false;
       if (_stamp != null)
       {
         // 찍기 전에는 안 보이게
@@ -159,6 +166,13 @@ namespace BrushGame
       }
 
       var after = t - _stampSec;
+      if (!_stampSounded)
+      {
+        // 내려찍히는 순간 쿵! + "칭찬 도장을 받았어요!"
+        _stampSounded = true;
+        SoundManager.Sfx("stamp");
+        SoundManager.Voice("sticker_new", SoundManager.Say.Interrupt);
+      }
       if (_stampFx != null && after < _fxSec)
       {
         if (!_stampFx.gameObject.activeSelf)

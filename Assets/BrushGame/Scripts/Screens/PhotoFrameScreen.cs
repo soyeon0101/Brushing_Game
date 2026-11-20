@@ -63,6 +63,7 @@ namespace BrushGame
     {
       _t = 0f;
       Pop(0f);
+      SoundManager.Voice("photo_frame", SoundManager.Say.Interrupt);
     }
 
     private void Awake()

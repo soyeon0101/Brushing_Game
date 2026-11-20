@@ -44,9 +44,14 @@ namespace BrushGame
     {
       _t = 0f;
       _finished = false;
+      _arrived = false;
       EnsureStars();
       Apply(0f, 0f);
+      SoundManager.Sfx("loading_rocket");
+      SoundManager.Voice("loading_fly", SoundManager.Say.Interrupt);
     }
+
+    private bool _arrived;
 
     private void Update()
     {
@@ -68,6 +73,12 @@ namespace BrushGame
     {
       _barFill.anchorMax = new Vector2(p, 1f);
       _message.text = p < 0.9f ? _flyingLine : _arrivedLine;
+      if (p >= 0.9f && !_arrived)
+      {
+        _arrived = true;
+        SoundManager.Sfx("arrive");
+        SoundManager.Voice("loading_arrive", SoundManager.Say.Interrupt);
+      }
 
       // 치과는 위에서 내려오며 커진다 (우주선이 다가가는 느낌)
       var approach = Smooth(Mathf.Clamp01(p / _dockAt));

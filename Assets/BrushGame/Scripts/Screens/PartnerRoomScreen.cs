@@ -112,6 +112,7 @@ namespace BrushGame
         else
         {
           ShowBubble(_chargeLine);
+          SoundManager.Voice("partner_charge", SoundManager.Say.Interrupt);
         }
       }
       else if (string.IsNullOrEmpty(_data.partnerName))
@@ -144,6 +145,7 @@ namespace BrushGame
       _darkness.gameObject.SetActive(true);
       _darkness.alpha = 1f;
       ShowBubble(_storageLine);
+      SoundManager.Voice("partner_storage", SoundManager.Say.Interrupt);
       _bringButton.gameObject.SetActive(true);
     }
 
@@ -167,6 +169,7 @@ namespace BrushGame
       _darkness.gameObject.SetActive(false);
       ShowBattery(0.15f, false);
       ShowBubble(_chargeLine);
+      SoundManager.Voice("partner_charge", SoundManager.Say.Interrupt);
       _story = null;
       if (_data.PartnerReadyToWake)
       {
@@ -192,6 +195,7 @@ namespace BrushGame
       _battery.SetActive(false);
       _data.partnerAwake = true;
       SaveStore.Save();
+      SoundManager.Sfx("robot_wake");
       yield return _robot.PowerOn();
       _story = null;
       AskName();
@@ -215,6 +219,7 @@ namespace BrushGame
     private void AskName()
     {
       ShowBubble(_helloLine);
+      SoundManager.Voice("partner_hello", SoundManager.Say.Interrupt);
       _nameInput.text = "";
       _nameOkButton.interactable = false;
       _namePanel.SetActive(true);
@@ -236,6 +241,7 @@ namespace BrushGame
     private IEnumerator NameDone(string name)
     {
       ShowBubble(string.Format(_nameDoneLine, name));
+      SoundManager.Voice("partner_named", SoundManager.Say.Interrupt);
       _robot.Celebrate();     // 이름을 받은 기념으로 ^^ 통통 + 폭죽
       yield return new WaitForSeconds(2.5f);
       ShowBubble(null);
@@ -253,6 +259,7 @@ namespace BrushGame
       _data.partnerFedCount++;
       SaveStore.Save();
       _robot.Feed();
+      SoundManager.Sfx("robot_eat");
       Refresh();
     }
 

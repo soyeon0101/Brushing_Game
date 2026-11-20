@@ -41,10 +41,19 @@ namespace BrushGame
     [SerializeField] private VolumeRow _master;
     [SerializeField] private VolumeRow _music;
     [SerializeField] private VolumeRow _effect;
+    [Tooltip("안내 음성 (TTS) 크기 + 켜고 끄기")]
+    [SerializeField] private VolumeRow _voice;
     [SerializeField] private Sprite _soundOnIcon;
     [SerializeField] private Sprite _soundOffIcon;
+    [Tooltip("예전 켜짐/꺼짐 버튼 (볼륨 줄이 없을 때만 쓴다)")]
     [SerializeField] private Button _voiceButton;
     [SerializeField] private Text _voiceLabel;
+    [Tooltip("안내 음성 크기를 바꿀 때 들려줄 예시 대사 (Sound/Voice 파일 이름)")]
+    [SerializeField] private string _voiceSampleId = "cheer_3";
+    [Tooltip("양치 음악 고르기 상자 (목록 순서 = SoundManager 양치 음악 후보 순서). 고르면 미리 들려준다")]
+    [SerializeField] private Dropdown _musicDropdown;
+    [Tooltip("예전 방식: 곡마다 버튼 (상자가 없을 때만 쓴다)")]
+    [SerializeField] private Button[] _musicButtons;
 
     [Header("게임 설정 탭")]
     [SerializeField] private InputField _zoneSecondsInput;
@@ -71,6 +80,8 @@ namespace BrushGame
 
     private static GuardianSettings Settings => SaveStore.Data.settings;
 
+    private bool HasVoiceRow => _voice != null && _voice.slider != null && _voice.muteButton != null;
+
     private int _tab;
     private Action _onConfirm;
     private bool _refreshing;
@@ -86,7 +97,15 @@ namespace BrushGame
     public void Close()
     {
       gameObject.SetActive(false);
+      // 양치 음악을 미리 들었으면 원래 배경음으로 (설정 창은 로비에서 연다)
+      if (_previewing)
+      {
+        _previewing = false;
+        SoundManager.PlayMenuMusic();
+      }
     }
+
+    private bool _previewing;
 
     private void Awake()
     {
@@ -99,11 +118,37 @@ namespace BrushGame
       BindVolume(_master, v => Settings.masterVolume = v, () => Settings.sound = !Settings.sound);
       BindVolume(_music, v => Settings.musicVolume = v, () => Settings.music = !Settings.music);
       BindVolume(_effect, v => Settings.effectVolume = v, () => Settings.effects = !Settings.effects);
-      _voiceButton.onClick.AddListener(() =>
+      if (HasVoiceRow)
       {
-        Settings.voiceGuide = !Settings.voiceGuide;
-        SaveAndRefresh();
-      });
+        // 크기를 바꾸면 예시 대사로 들려준다 (끄면 하던 말도 바로 멈춘다: ApplyAudio → SoundManager)
+        BindVolume(_voice, v =>
+        {
+          Settings.voiceVolume = v;
+          SoundManager.Voice(_voiceSampleId, SoundManager.Say.IfFree);
+        }, () => Settings.voiceGuide = !Settings.voiceGuide);
+      }
+      else if (_voiceButton != null)
+      {
+        _voiceButton.onClick.AddListener(() =>
+        {
+          Settings.voiceGuide = !Settings.voiceGuide;
+          SoundManager.ApplySettings();
+          SaveAndRefresh();
+        });
+      }
+
+      if (_musicDropdown != null)
+      {
+        _musicDropdown.onValueChanged.AddListener(PickMusic);
+      }
+      else
+      {
+        for (var i = 0; _musicButtons != null && i < _musicButtons.Length; i++)
+        {
+          var index = i;
+          _musicButtons[i].onClick.AddListener(() => PickMusic(index));
+        }
+      }
 
       _zoneSecondsInput.contentType = InputField.ContentType.IntegerNumber;
       _zoneSecondsInput.characterLimit = 2;
@@ -128,6 +173,19 @@ namespace BrushGame
         action?.Invoke();
       });
       _closeButton.onClick.AddListener(Close);
+    }
+
+    private void PickMusic(int index)
+    {
+      if (_refreshing)
+      {
+        return;
+      }
+      Settings.brushingMusic = index;
+      _previewing = true;
+      SoundManager.PlayTouch();
+      SoundManager.PreviewGameplayMusic(index);
+      SaveAndRefresh();
     }
 
     private void BindVolume(VolumeRow row, Action<float> setVolume, Action toggleMute)
@@ -222,8 +280,33 @@ namespace BrushGame
       SetRow(_master, Settings.masterVolume, Settings.sound);
       SetRow(_music, Settings.musicVolume, Settings.music);
       SetRow(_effect, Settings.effectVolume, Settings.effects);
+      if (HasVoiceRow)
+      {
+        SetRow(_voice, Settings.voiceVolume, Settings.voiceGuide);
+      }
       _refreshing = false;
-      _voiceLabel.text = Settings.voiceGuide ? "켜짐" : "꺼짐";
+      if (_voiceLabel != null)
+      {
+        _voiceLabel.text = Settings.voiceGuide ? "켜짐" : "꺼짐";
+      }
+      if (_musicDropdown != null && _musicDropdown.options.Count > 0)
+      {
+        _musicDropdown.SetValueWithoutNotify(Mathf.Clamp(Settings.brushingMusic, 0, _musicDropdown.options.Count - 1));
+      }
+      // 예전 방식: 고른 양치 음악 버튼만 분홍 (탭과 같은 색)
+      for (var i = 0; _musicDropdown == null && _musicButtons != null && i < _musicButtons.Length; i++)
+      {
+        var on = i == Mathf.Clamp(Settings.brushingMusic, 0, _musicButtons.Length - 1);
+        if (_musicButtons[i].targetGraphic != null)
+        {
+          _musicButtons[i].targetGraphic.color = on ? _tabOnColor : _tabOffColor;
+        }
+        var label = _musicButtons[i].GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+          label.color = on ? _tabOnText : _tabOffText;
+        }
+      }
       _zoneSecondsInput.text = Settings.zoneSeconds.ToString();
       ShowZoneNote(false);
       if (_calibrationNote != null)

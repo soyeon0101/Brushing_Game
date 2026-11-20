@@ -127,7 +127,7 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 |---|---|---|---|
 | 로비 **반짝 배지** 버튼 → 우주 항해 지도 | `BrushGame/Restore/Badge Button - Badge Box` | `BrushGame/Lobby/Badge Button - Space Map` | 로비 버튼이 "반짝 배지"(메달 그림), 누르면 배지함 |
 | 로비 **스티커판** 버튼 → 파트너 방 (로봇 "내 친구") | `BrushGame/Restore/Sticker Button - Sticker Board` | `BrushGame/Lobby/Sticker Button - Partner Room` | 로비 버튼이 "스티커판", 누르면 칭찬 스티커판 |
-| 처음 치료 시작 때 **양치 동화(측정)** 추가 + 보호자 설정 "양치 기준 다시 재기" | `BrushGame/Restore/Brush Story - Off` | `BrushGame/Story/Brush Story - On` | 치료 시작 → 바로 환자 확인, 보호자 설정 게임 탭에 "양치 기준" 줄이 없음, 판정은 기본 기준만 (측정·갱신 안 함, `BrushInputHub._calibrationEnabled` 꺼짐) |
+| 처음 치료 시작 때 **양치 동화(측정)** 추가 + 설정 "양치 기준 다시 재기" | `BrushGame/Restore/Brush Story - Off` | `BrushGame/Story/Brush Story - On` | 치료 시작 → 바로 환자 확인, 설정 게임 탭에 "양치 기준" 줄이 없음, 판정은 기본 기준만 (측정·갱신 안 함, `BrushInputHub._calibrationEnabled` 꺼짐) |
 
 - 꺼 둔 화면(배지함, 스티커판)과 그 기록 계산은 그대로 남아 있어서, 되돌리면 그동안의 기록도 보인다.
 - 치료 후 흐름(완료 → 스티커판 → 우주 항해 지도 → 로비)은 위 스위치와 상관없이 그대로다.
@@ -135,7 +135,7 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 
 ### 로비 화면 (시안 A)
 
-- 위: 프로필 알약(닉네임, 연속 양치 일수 `BadgeRules.CurrentStreak`, 0일이면 숨김) + 오른쪽 위 **보호자 설정 톱니** · 오늘의 칭찬 도장 판(받은 끼니는 도장 그림, 지금 끼니는 분홍 테두리 + "지금!" + 통통)
+- 위: 프로필 알약(닉네임, 연속 양치 일수 `BadgeRules.CurrentStreak`, 0일이면 숨김) + 오른쪽 위 **설정 톱니** · 오늘의 칭찬 도장 판(받은 끼니는 도장 그림, 지금 끼니는 분홍 테두리 + "지금!" + 통통)
 - 가운데: 말풍선 대사 + 환자(배경 우주 창문 앞) + 이름표. 화면이 짧으면 `FitInParent`로 통째로 줄어든다
 - 아래: 화면 높이 6% 위에 붙는다. 치료 시작(커졌다 작아짐 + 반짝 띠) + 메뉴 3개(환자 도감 / 스티커판 자리 / 배지 자리). 위 표의 메뉴 스위치는 그대로 쓴다
 - 움직임은 `UiMotion`(인스펙터에서 종류·세기·속도 조절). 도장 쾅(로비를 다시 열 때 새로 생긴 도장), 환자 누르면 흔들기는 `LobbyScreen`
@@ -149,18 +149,22 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 - 오는 순서 (`GameCatalog.PatientFor`): 처음(도장 0개)은 목록 첫 환자(지그), 그 뒤는 한 바퀴씩 섞어서 모두 한 번씩 만난 뒤 다시 섞는다 (첫 바퀴 = 지그 뺀 나머지, 바퀴 사이 연달아 같은 환자 없음). 순서는 닉네임 + 몇 번째 바퀴로 정해서 도장을 더 받기 전까지 같은 환자. 이미 도장 받은 끼니는 그때 환자가 다시 온다 (연습).
 - 환자 도감 칸 수는 카탈로그 환자 수(최소 12, 3의 배수)를 따른다. 환자를 늘렸으면 `BrushGame/Rebuild Patient Book Screen`.
 
-### 음성 안내 (TTS, 준비 중)
+### 음성 안내 (TTS)와 효과음
 
-- 대본: `Docs/tts_script.csv` (ID·파일명·화자·대사·연기 지시·재생 규칙), 화자별 목소리: `Docs/tts_voices.csv`
+- 대본: `Docs/tts_script.csv` (ID·파일명·화자·대사·연기 지시·재생 규칙), 화자별 목소리: `Docs/tts_voices.csv`, 효과음 목록: `Docs/sfx_list.csv`
+- 파일: `Sound/Voice/{ID}.wav`(음성 90), `Sound/Sfx/{ID}.wav`(효과음 27). 파일 이름 = 코드에서 부르는 ID. 같은 이름으로 덮어쓰면 바뀌고, 더하거나 바꾼 뒤 `BrushGame/Link Sounds` (SoundManager 목록 연결 + 모노/압축 설정 + 환자·로봇·액자 버튼 소리)
+- 코드: `SoundManager.Voice(id, Say.Interrupt/Queue/IfFree, 쿨타임)`, `SoundManager.Sfx(id)`, `SfxPitch`, `SetBrushLoop`. 말하는 동안 배경음을 30%로 낮추고, 화면이 바뀌면 `GameFlow.Show`가 하던 말을 끊는다
+- 동화는 이야기를 다 들려준 뒤에 다음 장으로 넘어간다 (음성 안내를 끄면 바로)
+- 양치 화면 배경음은 설정 사운드 탭 **"양치 음악"**에서 고른다 (통통 우주 산책 `Sound/Bgm/Brushing_A_Marimba` · 포근한 별빛 `Brushing_B_WarmPad` · 신나는 모험 `Sound/Game_play_Sound`, 기본 통통 우주 산책, `GuardianSettings.brushingMusic`). 누르면 미리 들려주고 창을 닫으면 로비 음악으로. 곡을 늘리려면 `SoundLinker.BrushingMusic`와 `MainSceneBuilder.MusicNames`에 같이 더하고 `BrushGame/Settings/Brushing Music Row`. 요청서 `Docs/bgm_brushing.csv`
 - 안내는 **로봇 친구**가 한다 (양치 화면 안내창 그림도 로봇 친구, `BrushingScreen._guideSprite`). 동화는 내레이터, 부탁·고마워는 환자 본인
 - 닉네임·로봇 이름은 녹음으로 읽을 수 없어서 음성에서는 빼거나 "우리 선생님"으로 바꾼다 (화면 글자는 그대로)
 - 재생 규칙: 구역 시작·완료와 손 안 보임은 항상(구역 안내는 다른 말을 끊음) · 너무 빠름은 5초 쿨타임 · 멈춤은 멈출 때마다 1번 · 응원은 8~10초에 1번 · 말하는 중이면 끝난 뒤
-- 켜기/끄기는 보호자 설정의 "음성 안내"(`GuardianSettings.voiceGuide`)에 연결한다
+- 설정 사운드 탭 "안내 음성" 줄: 게이지(`GuardianSettings.voiceVolume`) + 음소거(`voiceGuide`). 게이지를 움직이면 예시 대사가 나온다. 음성 기준 크기는 `SoundManager._voiceVolume`(0.9)이고 게이지가 여기에 곱해진다. 예전 씬에 켜짐/꺼짐 버튼만 있으면 `BrushGame/Settings/Voice Volume Row`
 
 ## 12. 보호자 동의·회원가입, 양치 사진 액자
 
 - 첫 실행: 타이틀 → **보호자 동의**([필수] 개인정보, [필수] 카메라) → **회원가입**(보호자 이름·이메일) → 나이 → 캐릭터 → 닉네임. 동의 기록이 없는 예전 저장 파일은 동의·가입만 받고 로비로 간다.
-- 가입 정보(보호자 이름·이메일, 닉네임)는 `save.json`, 사진은 `persistentDataPath/Photos/{날짜}_{끼니}/brush_1~4.png`에만 저장한다. **가입 정보와 사진을 서버로 보내는 코드를 넣지 않는다** (동의 화면에 그렇게 명시함). 보호자 설정의 초기화는 사진까지 지운다.
+- 가입 정보(보호자 이름·이메일, 닉네임)는 `save.json`, 사진은 `persistentDataPath/Photos/{날짜}_{끼니}/brush_1~4.png`에만 저장한다. **가입 정보와 사진을 서버로 보내는 코드를 넣지 않는다** (동의 화면에 그렇게 명시함). 설정의 초기화는 사진까지 지운다.
 - 서버로 보내는 건 이름 없는 양치 기록뿐이다 (14장). 동의 화면에 "익명 번호로 서버에 보낸다, 초기화해도 서버 기록은 지워지지 않는다"고 적혀 있으므로, 보내는 항목을 바꾸면 동의 문구(`MainSceneBuilder.PrivacyTerms`와 씬의 `Consent` 화면)도 같이 고친다.
 - 양치 중 구역마다 진행도 50%에서 한 장씩 찍는다 (`PhotoBooth`, 카메라 작은 창에 번쩍임). 카메라 없이 키보드로 하면 안 찍히고 액자 칸은 캐릭터 그림으로 채운다.
 - 치료 후: 완료 → **사진 액자** → 스티커판 → 지도. 액자 4종은 사진 배치·모양까지 다르다: 딸기우유(하트 4), 반짝우주(크기 다른 동그라미 지그재그), 민트거품(큰 사진 1 + 방울 3), 무지개(테이프 붙인 폴라로이드 콜라주). 고른 액자는 기억한다.
@@ -174,7 +178,7 @@ MCP for Unity에서는 `execute_menu_item`으로 메뉴 경로를 그대로 실�
 - **언제 재나**:
   - 로비에서 **처음 치료 시작**을 누르면 환자 확인 전에 **양치 동화**(`BrushStoryScreen`)를 한 번 보여 주며 잰다 (로비 들어가기 전에 양치를 시키면 "게임 전에 또 양치?"가 돼서). 마지막 장 "아픈 친구들을 도와줄래요?" → 환자 확인으로 이어진다. 터치 대신 양치로 페이지를 넘긴다. 4장(4컷 그림): 1 이빨 행성 → 2 충치균 습격(측정 3.5초) → 3 우주 치과에 연락(측정 3.5초) → 4 출동(버튼). 동화를 안 본 예전 저장 파일도 다음 치료 시작 때 한 번 본다.
   - 그림은 고른 캐릭터별: 왕자 = `Art/Story/story_boy_1~4`, 공주 = `story_girl_1~4` (원본 `Story.png`, `Story2.png` 2×2 4컷을 칸마다 잘라 저장한 사본). 카메라 영상은 배경 그림(`Art/Loading/Loading_BG`)으로 가린다 (손 인식은 계속 돈다).
-  - 보호자 설정 → 게임 설정 → **양치 기준 다시 재기**로 다시 잴 수 있다 (측정 페이지 3장 × 2.5초 + 결과).
+  - 설정 → 게임 설정 → **양치 기준 다시 재기**로 다시 잴 수 있다 (측정 페이지 3장 × 2.5초 + 결과).
   - 양치 한 판을 끝까지 하면 그 판 값을 20% 섞어 조금씩 갱신한다 (중간에 그만두면 버림). 아직 못 쟀으면 첫 판 값을 그대로 쓴다.
 - **기준 정하기** (`BrushCalibrationRules`, `CameraBrushInput` 인스펙터에서 조정. 수치는 임시값):
 

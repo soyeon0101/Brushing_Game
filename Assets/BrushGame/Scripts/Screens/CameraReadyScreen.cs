@@ -24,6 +24,8 @@ namespace BrushGame
 
     private float _visibleSec;
     private bool _finished;
+    private bool _wasVisible;
+    private bool _saidReady;
 
     public event Action Finished;
     public event Action BackPressed;
@@ -32,7 +34,11 @@ namespace BrushGame
     {
       _visibleSec = 0f;
       _finished = false;
+      _wasVisible = false;
+      _saidReady = false;
       Refresh();
+      SoundManager.Voice("camera_title", SoundManager.Say.Interrupt);
+      SoundManager.Voice("camera_hint", SoundManager.Say.Queue);
     }
 
     private void Awake()
@@ -46,8 +52,30 @@ namespace BrushGame
       {
         return;
       }
-      _visibleSec = _input.HandVisible ? _visibleSec + Time.deltaTime : 0f;
+      var visible = _input.HandVisible;
+      _visibleSec = visible ? _visibleSec + Time.deltaTime : 0f;
       Refresh();
+
+      if (visible != _wasVisible)
+      {
+        _wasVisible = visible;
+        SoundManager.Sfx(visible ? "hand_found" : "hand_lost", 0.8f);
+        if (!visible)
+        {
+          _saidReady = false;
+        }
+      }
+      if (!_saidReady && _visibleSec >= _steadySec)
+      {
+        // 카운트다운 시작: "좋아! 그대로 준비~"
+        _saidReady = true;
+        SoundManager.Voice("camera_ready", SoundManager.Say.Interrupt, 3f);
+      }
+      else if (!visible)
+      {
+        // 처음 안내가 끝난 뒤에도 손이 안 보이면 5초마다
+        SoundManager.Voice("camera_wait", SoundManager.Say.IfFree, 5f);
+      }
 
       if (_visibleSec >= _steadySec + _countdownSec)
       {

@@ -59,7 +59,7 @@ namespace BrushGame
         _flash.transform.SetAsLastSibling();
       }
       _flashT = 0f;
-      SoundManager.PlayTouch();
+      SoundManager.Sfx("camera_shutter");
       return true;
     }
 

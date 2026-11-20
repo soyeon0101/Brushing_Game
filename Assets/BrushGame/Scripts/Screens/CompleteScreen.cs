@@ -14,11 +14,21 @@ namespace BrushGame
 
     public event Action Confirmed;
 
+    private string _patientId;
+
     public void Setup(PatientInfo patient)
     {
+      _patientId = patient.id;
       ArtSlot.Apply(_before, patient.before);
       ArtSlot.Apply(_after, patient.after);
       _thanks.text = $"\"{patient.thanksLine}\"";
+    }
+
+    /// <summary>로봇 친구 "치료 완료!" → 이어서 환자가 고맙다고 말한다</summary>
+    public override void OnShow()
+    {
+      SoundManager.Voice("complete_title", SoundManager.Say.Interrupt);
+      SoundManager.Voice($"{_patientId}_thanks", SoundManager.Say.Queue);
     }
 
     private void Awake()

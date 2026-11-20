@@ -345,10 +345,16 @@ namespace BrushGame
       _sequence = StartCoroutine(Sequence(seen, target));
     }
 
+    /// <summary>발판 소리 음 높이 (반음 단위, 도레미파솔라시도)</summary>
+    private static readonly int[] PadScale = { 0, 2, 4, 5, 7, 9, 11, 12 };
+
     private IEnumerator Sequence(int from, int to)
     {
       for (var lit = from + 1; lit <= to && !_skip; lit++)
       {
+        // 한 번에 여러 칸이 켜지면 칸마다 음을 한 단계씩 올린다 (도레미…)
+        SoundManager.SfxPitch("map_pad", Mathf.Pow(2f, PadScale[(lit - from - 1) % PadScale.Length] / 12f));
+        SoundManager.Sfx("ship_move", 0.5f);
         yield return LightPad(lit - 1);
         if (_skip)
         {
@@ -360,6 +366,10 @@ namespace BrushGame
         }
       }
       _sequence = null;
+      if (to >= MaxPads && MaxPads > 0)
+      {
+        SoundManager.Voice("map_all", SoundManager.Say.Interrupt);
+      }
       Finish();
     }
 
@@ -392,6 +402,7 @@ namespace BrushGame
     {
       var p = _planets[index];
       yield return ScrollRoutine(p.root.anchoredPosition.y);
+      SoundManager.Sfx("map_unlock");
       yield return PlayUnlockFrames(p);
     }
 

@@ -327,6 +327,9 @@ namespace BrushGame
         _current.gameObject.SetActive(false);
       }
       _current = screen;
+      // 앞 화면에서 하던 말·슥삭 소리는 끊는다 (새 화면이 OnShow에서 자기 말을 시작한다)
+      SoundManager.StopVoice();
+      SoundManager.SetBrushLoop(false);
       _cameraFeed.SetActive(screen == _cameraReady || screen == _brushing || screen == _story);
       PlayMusicFor(screen);
       screen.gameObject.SetActive(true);

@@ -137,6 +137,8 @@ namespace BrushGame
         return;
       }
       _hitT = 0f;
+      // 자주 나는 소리라 높낮이를 조금씩 바꿔 덜 지루하게
+      SoundManager.SfxPitch("germ_hit", Random.Range(0.9f, 1.2f), 0.6f);
       // 반짝이 자리가 조금씩 달라야 여러 번 닦는 느낌이 난다
       _hitEffect.anchoredPosition = _hitHome + Random.insideUnitCircle * 40f;
       _hitEffect.localEulerAngles = new Vector3(0f, 0f, Random.Range(-25f, 25f));

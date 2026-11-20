@@ -1026,6 +1026,8 @@ namespace BrushGame.EditorTools
         }
       }
       so.ApplyModifiedProperties();
+      // 음성·효과음 목록과 버튼별 소리
+      SoundLinker.Link(sound);
       return sound;
     }
 
@@ -1310,6 +1312,7 @@ namespace BrushGame.EditorTools
       var patientButton = Btn("PatientButton", patient, new Vector2(0f, -40f), new Vector2(480f, 480f), "", new Color(1f, 1f, 1f, 0f), LobbyInk, 20, null, disc);
       patientButton.GetComponentInChildren<Text>(true).gameObject.SetActive(false);
       patientButton.transition = Selectable.Transition.None;
+      patientButton.gameObject.AddComponent<ButtonSound>().Configure("patient_tap");
       ((RectTransform)patientButton.transform).pivot = new Vector2(0.5f, 0.1f);
       ((RectTransform)patientButton.transform).anchoredPosition = new Vector2(0f, -40f - 480f * 0.4f);
       // 피벗을 발밑 쪽에 두어 숨쉬기·흔들기가 바닥을 기준으로 움직이게
@@ -2064,7 +2067,7 @@ namespace BrushGame.EditorTools
       "- 이용 목적: 회원 확인, 양치 기록과 칭찬 도장 관리, 서비스 개선\n" +
       "- 보관 장소: 이름, 이메일, 닉네임은 이 기기 안에만 저장해요\n" +
       "- 양치 기록(나이, 양치 시간 등)은 이름 없이 익명 번호로 서버에 보내요\n" +
-      "- 보관 기간: 기기 안 정보는 보호자 설정의 '초기화' 또는 앱 삭제 시까지\n" +
+      "- 보관 기간: 기기 안 정보는 설정의 '초기화' 또는 앱 삭제 시까지\n" +
       "  (서버로 보낸 익명 기록은 초기화해도 지워지지 않아요)\n" +
       "- 동의하지 않으면 게임을 시작할 수 없어요";
 
@@ -2072,7 +2075,7 @@ namespace BrushGame.EditorTools
       "- 이용 목적: 칫솔 든 손의 움직임 인식, 양치하는 모습 사진 4장 촬영\n" +
       "- 손 인식은 기기 안에서만 처리되고, 영상은 저장하지 않아요\n" +
       "- <b><color=#E0508A>촬영한 사진은 이 기기에만 저장되며, 서버로 보내거나 서버에 저장하지 않아요</color></b>\n" +
-      "- 사진은 보호자 설정의 '초기화'로 언제든 지울 수 있어요\n" +
+      "- 사진은 설정의 '초기화'로 언제든 지울 수 있어요\n" +
       "- 기기가 카메라 권한을 물어보면 '허용'을 눌러 주세요";
 
     private const string CompleteNextLabel = "양치 사진 보기";
@@ -2951,7 +2954,7 @@ namespace BrushGame.EditorTools
       dim.color = Dim;
       var panel = Frame("Panel", root, new Vector2(1000f, 1340f), frameArt);
       var p = panel.transform;
-      Txt("Title", p, new Vector2(0f, 490f), new Vector2(760f, 90f), "보호자 설정", 58, Dark, bold: true);
+      Txt("Title", p, new Vector2(0f, 490f), new Vector2(760f, 90f), "설정", 58, Dark, bold: true);
 
       // 탭: 왼쪽부터 차례로 (나중에 계정 연동 같은 탭이 붙을 수 있다)
       var tabNames = new[] { "사운드", "게임 설정" };
@@ -2974,9 +2977,8 @@ namespace BrushGame.EditorTools
       var master = VolumeRow("Master", soundPage, 200f, "전체", soundOn, soundOn);
       var music = VolumeRow("Music", soundPage, 65f, "배경음", LoadArt(IconArtDir, "Icon_Music"), soundOn);
       var effect = VolumeRow("Effect", soundPage, -70f, "효과음", LoadArt(IconArtDir, "Icon_Bell"), soundOn);
-      RowIcon("VoiceIcon", soundPage, new Vector2(-335f, -215f), LoadArt(IconArtDir, "Icon_Voice"));
-      Txt("VoiceLabel", soundPage, new Vector2(-120f, -215f), new Vector2(300f, 110f), "안내 음성\n(준비 중)", 36, Dark, TextAnchor.MiddleLeft, true);
-      var voice = Btn("VoiceButton", soundPage, new Vector2(290f, -215f), new Vector2(170f, 84f), "켜짐", Primary, Color.white, 34);
+      var voice = VolumeRow("Voice", soundPage, VoiceRowY, "안내 음성", LoadArt(IconArtDir, "Icon_Voice"), soundOn);
+      var musicDropdown = MusicRow(soundPage);
 
       // ---- 게임 설정 탭 ----
       var gamePage = Node("GamePage", p, Vector2.zero, new Vector2(1000f, 1340f));
@@ -3016,19 +3018,14 @@ namespace BrushGame.EditorTools
         tabs.GetArrayElementAtIndex(i).FindPropertyRelative("button").objectReferenceValue = tabButtons[i];
         tabs.GetArrayElementAtIndex(i).FindPropertyRelative("page").objectReferenceValue = pages[i];
       }
-      foreach (var (field, row) in new[] { ("_master", master), ("_music", music), ("_effect", effect) })
+      foreach (var (field, row) in new[] { ("_master", master), ("_music", music), ("_effect", effect), ("_voice", voice) })
       {
-        so.FindProperty($"{field}.slider").objectReferenceValue = row.slider;
-        so.FindProperty($"{field}.muteButton").objectReferenceValue = row.mute;
-        var label = row.mute.GetComponentInChildren<Text>(true);
-        so.FindProperty($"{field}.muteLabel").objectReferenceValue = label != null && label.gameObject.activeSelf ? label : null;
-        so.FindProperty($"{field}.muteIcon").objectReferenceValue = soundOn != null ? row.mute.targetGraphic : null;
+        SetVolumeRow(so, field, row, soundOn);
       }
       so.FindProperty("_soundOnIcon").objectReferenceValue = soundOn;
       so.FindProperty("_soundOffIcon").objectReferenceValue = soundOff;
       so.ApplyModifiedPropertiesWithoutUndo();
-      SetRef(panelComp, "_voiceButton", voice);
-      SetRef(panelComp, "_voiceLabel", voice.GetComponentInChildren<Text>());
+      SetRef(panelComp, "_musicDropdown", musicDropdown);
       SetRef(panelComp, "_zoneSecondsInput", input);
       SetRef(panelComp, "_zoneSecondsApply", apply);
       SetRef(panelComp, "_zoneSecondsNote", note);
@@ -3040,6 +3037,200 @@ namespace BrushGame.EditorTools
       SetRef(panelComp, "_confirmOkLabel", ok.GetComponentInChildren<Text>());
       SetRef(panelComp, "_confirmCancelButton", cancel);
       return panelComp;
+    }
+
+    private const float VoiceRowY = -205f;
+    private const float MusicRowY = -340f;
+
+    /// <summary>양치 음악 이름 (순서 = SoundManager 양치 음악 후보 = SoundLinker.BrushingMusic)</summary>
+    private static readonly string[] MusicNames = { "통통 우주 산책", "포근한 별빛", "신나는 모험" };
+
+    /// <summary>사운드 탭 "양치 음악" 줄: 아이콘 + 이름 + 곡 고르기 상자 (지금 곡 이름 ▽, 누르면 목록이 펼쳐진다)</summary>
+    private static Dropdown MusicRow(Transform soundPage)
+    {
+      RowIcon("MusicPickIcon", soundPage, new Vector2(-335f, MusicRowY), LoadArt(IconArtDir, "Icon_Music"));
+      Txt("MusicPickLabel", soundPage, new Vector2(-195f, MusicRowY), new Vector2(170f, 90f), "양치 음악", 40, Dark, TextAnchor.MiddleLeft, true);
+
+      const float itemHeight = 84f;
+      var arrow = LobbyArt.Tail;
+      var go = DefaultControls.CreateDropdown(new DefaultControls.Resources
+      {
+        standard = _rounded, background = _rounded, mask = _rounded, checkmark = _check, dropdown = arrow,
+      });
+      go.name = "MusicPickBox";
+      var rt = (RectTransform)go.transform;
+      rt.SetParent(soundPage, false);
+      rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+      rt.anchoredPosition = new Vector2(135f, MusicRowY);
+      rt.sizeDelta = new Vector2(440f, itemHeight);
+
+      // 상자: 흰 둥근 판 + 연보라 테두리
+      var box = go.GetComponent<Image>();
+      Rounded(box, Color.white, itemHeight / 2f);
+      var border = go.AddComponent<Outline>();
+      border.effectColor = new Color(0.8f, 0.73f, 0.96f);
+      border.effectDistance = new Vector2(3f, -3f);
+
+      var label = rt.Find("Label").GetComponent<Text>();
+      label.fontSize = 38;
+      label.fontStyle = FontStyle.Bold;
+      label.color = UiSkin.Ink;
+      label.alignment = TextAnchor.MiddleLeft;
+      label.rectTransform.offsetMin = new Vector2(34f, 0f);
+      label.rectTransform.offsetMax = new Vector2(-80f, 0f);
+
+      var arrowImage = rt.Find("Arrow").GetComponent<Image>();
+      arrowImage.color = new Color(0.54f, 0.44f, 0.88f);
+      arrowImage.rectTransform.sizeDelta = new Vector2(34f, 22f);
+      arrowImage.rectTransform.anchoredPosition = new Vector2(-40f, 0f);
+
+      // 펼친 목록: 곡 수만큼 높이, 스크롤바 없음
+      var template = (RectTransform)rt.Find("Template");
+      template.sizeDelta = new Vector2(0f, itemHeight * MusicNames.Length + 16f);
+      Rounded(template.GetComponent<Image>(), Color.white, 30f);
+      var scrollbar = template.Find("Scrollbar");
+      if (scrollbar != null)
+      {
+        template.GetComponent<ScrollRect>().verticalScrollbar = null;
+        Object.DestroyImmediate(scrollbar.gameObject);
+      }
+      var viewport = (RectTransform)template.Find("Viewport");
+      viewport.offsetMin = new Vector2(8f, 8f);
+      viewport.offsetMax = new Vector2(-8f, -8f);
+      var content = (RectTransform)viewport.Find("Content");
+      content.sizeDelta = new Vector2(0f, itemHeight);
+      var item = (RectTransform)content.Find("Item");
+      item.sizeDelta = new Vector2(0f, itemHeight);
+      var itemBg = item.Find("Item Background").GetComponent<Image>();
+      Rounded(itemBg, Color.white, 24f);
+      var toggle = item.GetComponent<Toggle>();
+      var colors = toggle.colors;
+      colors.highlightedColor = new Color(0.95f, 0.92f, 1f);
+      colors.pressedColor = new Color(1f, 0.85f, 0.93f);
+      colors.selectedColor = new Color(0.95f, 0.92f, 1f);
+      toggle.colors = colors;
+      var check = item.Find("Item Checkmark").GetComponent<Image>();
+      check.color = new Color(1f, 0.42f, 0.68f);
+      check.rectTransform.sizeDelta = new Vector2(40f, 40f);
+      check.rectTransform.anchoredPosition = new Vector2(36f, 0f);
+      var itemLabel = item.Find("Item Label").GetComponent<Text>();
+      itemLabel.fontSize = 36;
+      itemLabel.color = UiSkin.Ink;
+      itemLabel.alignment = TextAnchor.MiddleLeft;
+      itemLabel.rectTransform.offsetMin = new Vector2(76f, 0f);
+      // 틀에 남은 기본 글자("Option A")가 비치지 않게
+      itemLabel.text = "";
+
+      var dropdown = go.GetComponent<Dropdown>();
+      dropdown.options = MusicNames.Select(n => new Dropdown.OptionData(n)).ToList();
+      dropdown.SetValueWithoutNotify(0);
+      dropdown.RefreshShownValue();
+      Undo.RegisterCreatedObjectUndo(go, "Music Row");
+      return dropdown;
+    }
+
+    /// <summary>Placeholder/Rounded 판을 모서리 반경 radius로</summary>
+    private static void Rounded(Image image, Color color, float radius)
+    {
+      image.sprite = _rounded;
+      image.type = Image.Type.Sliced;
+      image.color = color;
+      image.pixelsPerUnitMultiplier = _rounded.border.x / radius;
+    }
+
+    /// <summary>이미 있는 설정 창 사운드 탭에 "양치 음악" 줄을 넣는다 (이미 있으면 다시 만든다)</summary>
+    [MenuItem("BrushGame/Settings/Brushing Music Row")]
+    public static void AddMusicRow()
+    {
+      var panel = Object.FindFirstObjectByType<GuardianSettingsPanel>(FindObjectsInactive.Include);
+      var soundPage = panel != null ? panel.transform.Find("Panel/SoundPage") : null;
+      if (soundPage == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      foreach (Transform child in soundPage.Cast<Transform>().ToArray())
+      {
+        if (child.name.StartsWith("MusicPick"))
+        {
+          Undo.DestroyObjectImmediate(child.gameObject);
+        }
+      }
+      var dropdown = MusicRow(soundPage);
+      SetRef(panel, "_musicDropdown", dropdown);
+      SetArray(panel, "_musicButtons", new Object[0]);
+      foreach (Transform child in soundPage)
+      {
+        if (child.name.StartsWith("MusicPick"))
+        {
+          FontRoles.ApplyAll(child);
+          UiSkin.ApplyAll(child);
+        }
+      }
+      var sound = Object.FindFirstObjectByType<SoundManager>(FindObjectsInactive.Include);
+      if (sound != null)
+      {
+        SoundLinker.Link(sound);
+      }
+      var scene = panel.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 설정에 양치 음악 고르기를 넣고 씬을 저장했습니다.");
+    }
+
+    private static void SetVolumeRow(SerializedObject so, string field, (Slider slider, Button mute) row, Sprite soundOn)
+    {
+      so.FindProperty($"{field}.slider").objectReferenceValue = row.slider;
+      so.FindProperty($"{field}.muteButton").objectReferenceValue = row.mute;
+      var label = row.mute.GetComponentInChildren<Text>(true);
+      so.FindProperty($"{field}.muteLabel").objectReferenceValue = label != null && label.gameObject.activeSelf ? label : null;
+      so.FindProperty($"{field}.muteIcon").objectReferenceValue = soundOn != null ? row.mute.targetGraphic : null;
+    }
+
+    /// <summary>
+    ///   이미 있는 보호자 설정 창의 "안내 음성" 켜짐/꺼짐 버튼을 볼륨 게이지 줄로 바꾼다 (다른 줄·탭은 그대로).
+    ///   창 전체를 다시 만들지 않아도 되게. 이미 게이지 줄이 있으면 다시 만든다.
+    /// </summary>
+    [MenuItem("BrushGame/Settings/Voice Volume Row")]
+    public static void UpgradeVoiceRow()
+    {
+      var panel = Object.FindFirstObjectByType<GuardianSettingsPanel>(FindObjectsInactive.Include);
+      var soundPage = panel != null ? panel.transform.Find("Panel/SoundPage") : null;
+      if (soundPage == null)
+      {
+        Debug.LogWarning($"[BrushGame] {ScenePath} 를 열고 실행하세요.");
+        return;
+      }
+      LoadCommonAssets();
+      foreach (var name in new[] { "VoiceIcon", "VoiceLabel", "VoiceButton", "VoiceSlider", "VoiceMute" })
+      {
+        var old = soundPage.Find(name);
+        if (old != null)
+        {
+          Undo.DestroyObjectImmediate(old.gameObject);
+        }
+      }
+      var soundOn = LoadArt(HudArtDir, "Hud_SoundOn");
+      var row = VolumeRow("Voice", soundPage, VoiceRowY, "안내 음성", LoadArt(IconArtDir, "Icon_Voice"), soundOn);
+      var so = new SerializedObject(panel);
+      SetVolumeRow(so, "_voice", row, soundOn);
+      so.FindProperty("_voiceButton").objectReferenceValue = null;
+      so.FindProperty("_voiceLabel").objectReferenceValue = null;
+      so.ApplyModifiedPropertiesWithoutUndo();
+      foreach (var name in new[] { "VoiceIcon", "VoiceLabel", "VoiceSlider", "VoiceMute" })
+      {
+        var t = soundPage.Find(name);
+        if (t != null)
+        {
+          FontRoles.ApplyAll(t);
+          UiSkin.ApplyAll(t);
+        }
+      }
+      var scene = panel.gameObject.scene;
+      EditorSceneManager.MarkSceneDirty(scene);
+      EditorSceneManager.SaveScene(scene);
+      Debug.Log("[BrushGame] 보호자 설정에 안내 음성 게이지를 넣고 씬을 저장했습니다.");
     }
 
     /// <summary>창 판. 테두리 그림(9-slice)이 있으면 그것을, 없으면 흰 둥근 판</summary>

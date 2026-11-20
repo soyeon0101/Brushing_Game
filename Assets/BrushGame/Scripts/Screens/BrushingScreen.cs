@@ -140,6 +140,15 @@ namespace BrushGame
     private int _cheerLineIndex;
     private BrushRecord _record;
     private bool _wasTooFast;
+    private string _patientId;
+    private bool _handLostShown;
+
+    [Header("음성 안내 (Docs/tts_script.csv)")]
+    [Tooltip("응원 음성 간격 (초). 글자는 더 자주 바뀌지만 말은 이 간격으로만")]
+    [SerializeField, Min(1f)] private float _cheerVoiceSec = 9f;
+    [Tooltip("너무 빠름 음성·효과음을 다시 내기까지 (초)")]
+    [SerializeField, Min(0f)] private float _tooFastVoiceSec = 5f;
+    private static readonly string[] ZoneIds = { "1", "2", "3", "4" };
 
     private ArtSwap _faceArt, _mouthTopArt, _mouthBottomArt;
     private Vector2[] _zoneHomes;
@@ -160,6 +169,7 @@ namespace BrushGame
     {
       // 안내는 로봇 친구가 한다 (문구가 환자를 "친구"라고 3인칭으로 부르므로)
       ArtSlot.Apply(_guidePortrait, _guideSprite != null ? _guideSprite : patient.Portrait);
+      _patientId = patient.id;
       _battle.SetHeroFrames(character?.battle);
       _zoneSeconds = Mathf.Clamp(zoneSeconds, GuardianSettings.MinZoneSeconds, GuardianSettings.MaxZoneSeconds);
 
@@ -198,6 +208,7 @@ namespace BrushGame
       StartRecord();
       _paused = false;
       _handLostT = 0f;
+      _handLostShown = false;
       _pauseOverlay.SetActive(false);
       _handLostOverlay.SetActive(false);
       _zoom.ResetView();
@@ -212,6 +223,7 @@ namespace BrushGame
       // 중간에 그만두면 이번 판 측정은 버린다 (끝까지 닦은 판만 반영)
       _input.CancelMeasure();
       SendRecord(completed: false);
+      SoundManager.SetBrushLoop(false);
       _pauseOverlay.SetActive(false);
       _handLostOverlay.SetActive(false);
       UndockCamera();
@@ -334,12 +346,14 @@ namespace BrushGame
         _zones[i].SetHighlight(i == zone);
       }
       ShowGuide(zone == 0 ? $"{ZoneNames[zone]}부터 시작해볼까?" : $"다음은 {ZoneNames[zone]}야!");
+      SoundManager.Voice(zone == 0 ? "zone_start_1" : $"zone_next_{ZoneIds[zone]}", SoundManager.Say.Interrupt);
       RefreshHud();
     }
 
     private void StartZoomIn()
     {
       SetPhase(Phase.ZoomIn);
+      SoundManager.Sfx("zone_start", 0.8f);
       var focus = new Vector2(0f, IsUpper(_zone) ? _focusY : -_focusY);
       _zoom.Focus((RectTransform)_zones[_zone].transform, focus, _zoomScale, _zoomSec);
     }
@@ -364,9 +378,24 @@ namespace BrushGame
       // 손이 안 보이면 양치/과속 판정은 적용하지 않는다
       var visible = _input.HandVisible;
       _handLostT = visible ? 0f : _handLostT + dt;
-      _handLostOverlay.SetActive(_handLostT >= _handLostDelay);
+      var lost = _handLostT >= _handLostDelay;
+      _handLostOverlay.SetActive(lost);
+      if (lost != _handLostShown)
+      {
+        _handLostShown = lost;
+        if (lost)
+        {
+          SoundManager.Sfx("hand_lost");
+          SoundManager.Voice("hand_lost", SoundManager.Say.Interrupt);
+        }
+        else
+        {
+          SoundManager.Sfx("hand_found", 0.8f);
+        }
+      }
       var brushing = visible && _input.IsBrushing;
       var tooFast = brushing && _input.IsTooFast;
+      SoundManager.SetBrushLoop(brushing);
 
       // 칫솔질(방향 전환)이 쌓이는 만큼 요정의 마법 동작이 넘어가고, _strokesPerBurst번마다 반짝이가 터진다
       var strokes = _input.StrokeCount;
@@ -409,6 +438,7 @@ namespace BrushGame
         if (_photoBooth != null && _photoBooth.Capture(_zone))
         {
           ShowGuide(_photoLine);
+          SoundManager.Voice("photo", SoundManager.Say.IfFree);
           _nextLineTime = Time.time + _lineSec;
         }
       }
@@ -425,7 +455,13 @@ namespace BrushGame
       _zones[_zone].PlayComplete();
       _battle.PlayDefeat();
       _handLostOverlay.SetActive(false);
-      ShowGuide(_zone + 1 >= _zones.Length ? "충치균을 모두 물리쳤어! 반짝반짝!" : "충치균을 물리쳤어! 반짝반짝!");
+      _handLostShown = false;
+      SoundManager.SetBrushLoop(false);
+      var last = _zone + 1 >= _zones.Length;
+      ShowGuide(last ? "충치균을 모두 물리쳤어! 반짝반짝!" : "충치균을 물리쳤어! 반짝반짝!");
+      SoundManager.Sfx(last ? "zone_clear_last" : "zone_clear");
+      SoundManager.Sfx("germ_defeat", 0.8f);
+      SoundManager.Voice(last ? "all_clear" : "zone_clear", SoundManager.Say.Interrupt);
     }
 
     private void StartZoomOut()
@@ -436,6 +472,7 @@ namespace BrushGame
       if (_zone + 1 >= _zones.Length)
       {
         ShowGuide("다 닦았어! 정말 고마워!");
+        SoundManager.Voice("brushing_done", SoundManager.Say.Queue);
         SoundManager.PlayGargle();
       }
     }
@@ -552,23 +589,46 @@ namespace BrushGame
       }
     }
 
+    /// <summary>
+    ///   글자는 _lineSec마다 바뀌지만 음성은 규칙대로만 말한다 (Docs/tts_script.csv 재생 규칙):
+    ///   구역 다시 알림은 말이 없을 때만 · 응원은 _cheerVoiceSec에 한 번 · 멈춤은 멈출 때마다 한 번 · 너무 빠름은 쿨타임
+    /// </summary>
     private void SetLine(LineMode mode)
     {
+      var entered = mode != _lineMode;
       _lineMode = mode;
       _nextLineTime = Time.time + _lineSec;
       switch (mode)
       {
         case LineMode.Zone:
           ShowGuide(ZoneLine);
+          SoundManager.Voice($"zone_remind_{ZoneIds[_zone]}", SoundManager.Say.IfFree);
           break;
         case LineMode.Cheer:
+          var cheer = _cheerLineIndex;
           ShowGuide(Next(_cheerLines, ref _cheerLineIndex));
+          SoundManager.Voice($"cheer_{cheer % 3 + 1}", SoundManager.Say.IfFree, _cheerVoiceSec, "cheer");
           break;
         case LineMode.Idle:
+          var idle = _idleLineIndex;
           ShowGuide(Next(_idleLines, ref _idleLineIndex));
+          if (entered)
+          {
+            SoundManager.Sfx("germ_laugh", 0.7f);
+            SoundManager.Voice($"idle_{idle % 4 + 1}", SoundManager.Say.Queue);
+          }
           break;
         case LineMode.TooFast:
           ShowGuide(_tooFastLine);
+          if (entered)
+          {
+            // 환자가 "아얏!" → 로봇 친구가 "조금만 천천히~"
+            SoundManager.SfxOnce("too_fast", _tooFastVoiceSec);
+            if (SoundManager.Voice($"{_patientId}_ouch", SoundManager.Say.Interrupt, _tooFastVoiceSec, "too_fast_ouch"))
+            {
+              SoundManager.Voice("too_fast", SoundManager.Say.Queue);
+            }
+          }
           break;
       }
     }
@@ -584,7 +644,7 @@ namespace BrushGame
       return line;
     }
 
-    /// <summary>모든 안내 문구는 여기를 거친다 (나중에 음성 안내를 붙일 자리)</summary>
+    /// <summary>모든 안내 글자는 여기를 거친다 (음성은 부르는 곳에서 재생 규칙대로 따로 낸다)</summary>
     private void ShowGuide(string line)
     {
       _guideText.text = line;
@@ -610,6 +670,10 @@ namespace BrushGame
       _paused = paused;
       _pauseOverlay.SetActive(paused);
       SoundManager.SetMusicPaused(paused);
+      if (paused)
+      {
+        SoundManager.Voice("pause", SoundManager.Say.Interrupt);
+      }
     }
 
     private void ToggleSound()

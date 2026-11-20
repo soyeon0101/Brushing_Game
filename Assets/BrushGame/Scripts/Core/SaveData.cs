@@ -57,8 +57,12 @@ namespace BrushGame
     [Range(0f, 1f)] public float masterVolume = 1f;
     [Range(0f, 1f)] public float musicVolume = 1f;
     [Range(0f, 1f)] public float effectVolume = 1f;
-    [Tooltip("음성 안내는 아직 없음. 설정값만 저장해 둔다")]
+    [Tooltip("음성 안내(로봇 친구·내레이터·환자 목소리). 끄면 글자로만 안내한다")]
     public bool voiceGuide = true;
+    [Tooltip("음성 안내 크기 0~1")]
+    [Range(0f, 1f)] public float voiceVolume = 1f;
+    [Tooltip("양치 화면 배경음 (SoundManager의 후보 목록 순서: 0 통통 우주 산책(마림바), 1 포근한 별빛(패드), 2 신나는 모험(원래 곡))")]
+    public int brushingMusic;
     [Tooltip("한 구역을 닦아야 하는 시간 (초)")]
     public int zoneSeconds = DefaultZoneSeconds;
 

@@ -48,6 +48,16 @@ namespace BrushGame
     public event Action BackPressed;
 
     /// <param name="newBadges">방금 받은 배지. 배지함만 보러 온 경우 null</param>
+    private bool _announceNew;
+
+    public override void OnShow()
+    {
+      if (_announceNew)
+      {
+        SoundManager.Voice("badge_new", SoundManager.Say.Interrupt);
+      }
+    }
+
     public void Setup(GameCatalog catalog, SaveData data, IList<BadgeInfo> newBadges)
     {
       var today = DateTime.Today;
@@ -91,6 +101,7 @@ namespace BrushGame
       }
 
       var hasNew = _popping.Count > 0;
+      _announceNew = hasNew;
       _t = hasNew ? 0f : -1f;
       _title.text = hasNew ? "새 배지를 받았어요!" : "반짝 배지";
       _summary.text = $"모은 배지 {earnedCount} / {catalog.badges.Length}";

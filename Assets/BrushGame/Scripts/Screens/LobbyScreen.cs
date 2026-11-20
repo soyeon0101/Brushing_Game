@@ -63,6 +63,7 @@ namespace BrushGame
     private SaveData _data;
     private int _slamMask;
     private Coroutine _wobble;
+    private string _patientId;
 
     public event Action TreatPressed;
     public event Action BookPressed;
@@ -110,6 +111,7 @@ namespace BrushGame
       s_shownDate = today;
       s_shownMask = mask;
 
+      _patientId = patient.id;
       _patientHeader.text = SaveData.VisitorTitle(slot);
       _patientName.text = patient.displayName;
       _patientLine.text = patient.requestLine;
@@ -147,8 +149,17 @@ namespace BrushGame
       if (_bubble != null)
       {
         StartCoroutine(Pop(_bubble, 0.15f));
+        SoundManager.Sfx("bubble_pop", 0.7f);
       }
+      if (IsOn(_bookNew) || IsOn(_stickerNew) || IsOn(_badgeNew))
+      {
+        SoundManager.Sfx("new_pop", 0.8f);
+      }
+      // 환자가 부탁 대사를 직접 말한다
+      SoundManager.Voice($"{_patientId}_request", SoundManager.Say.Queue);
     }
+
+    private static bool IsOn(GameObject go) => go != null && go.activeSelf;
 
     public override void OnHide()
     {
@@ -199,11 +210,14 @@ namespace BrushGame
       }
       _practiceMessage.text = $"{SaveData.SlotName(slot)} 도장은 벌써 받았어!\n그래도 연습할래?";
       _practicePanel.SetActive(true);
+      var slotId = slot == MealSlot.Morning ? "morning" : slot == MealSlot.Lunch ? "lunch" : "evening";
+      SoundManager.Voice($"lobby_practice_{slotId}", SoundManager.Say.Interrupt);
     }
 
     private void OnPatientTapped()
     {
-      SoundManager.PlayTouch();
+      // 누르는 소리(patient_tap)는 버튼의 ButtonSound가 낸다
+      SoundManager.Voice($"{_patientId}_request", SoundManager.Say.Interrupt);
       if (_wobble != null)
       {
         StopCoroutine(_wobble);
@@ -228,13 +242,19 @@ namespace BrushGame
     {
       target.localScale = Vector3.zero;
       yield return new WaitForSeconds(delay);
-      SoundManager.PlayTouch();
       const float duration = 0.4f;
+      var stamped = false;
       for (var t = 0f; t < duration; t += Time.deltaTime)
       {
         var k = t / duration;
         // 2.2배 → 0.85배(찍힘) → 1배
         var s = k < 0.55f ? Mathf.Lerp(2.2f, 0.85f, EaseIn(k / 0.55f)) : Mathf.Lerp(0.85f, 1f, EaseOut((k - 0.55f) / 0.45f));
+        if (!stamped && k >= 0.55f)
+        {
+          // 내려찍히는 순간 쿵!
+          stamped = true;
+          SoundManager.Sfx("stamp");
+        }
         target.localScale = new Vector3(s, s, 1f);
         yield return null;
       }
