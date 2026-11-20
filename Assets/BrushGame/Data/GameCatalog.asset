@@ -162,6 +162,102 @@ MonoBehaviour:
     requestLine: "\uBC18\uC9DD\uBC18\uC9DD \uBE5B\uB098\uB358 \uC774\uAC00 \uBE5B\uC744
       \uC783\uC5C8\uC5B4\u2026 \uB3C4\uC640\uC918!"
     thanksLine: "\uBC1D\uAC8C \uBE5B\uB098\uC694, \uBC14\uB974\uAC8C \uB2E6\uC544\uC694!"
+  - id: fox
+    displayName: "\uB8E8\uB8E8"
+    before: {fileID: 21300000, guid: 1c89d3a214911ce4a9492f5b3bf077ef, type: 3}
+    after: {fileID: 21300000, guid: 97e14e30ce56a5f4c93540e8e7500f10, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: 39835fc456d4408499a7361702ffe6f7, type: 3}
+    mouthTop: {fileID: 21300000, guid: 73d4d3f17b7a0274298705282b7d9444, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 06f00f7c39f55e944a1eff538b56e91f, type: 3}
+    mouthScale: 0.486
+    mouthTopPos: {x: 12.5, y: 53}
+    mouthBottomPos: {x: 12.5, y: -604}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uC0AC\uD0D5\uC744 \uBA39\uACE0 \uADF8\uB0E5 \uC7A4\uB354\uB2C8
+      \uC774\uAC00 \uCF55\uCF55 \uC544\uD30C! \uB3C4\uC640\uC918!"
+    thanksLine: "\uBC18\uC9DD\uC774\uB294 \uC774\uB85C \uD65C\uC9DD \uC6C3\uC5B4\uC694!"
+  - id: turtle
+    displayName: "\uD1A0\uD1A0"
+    before: {fileID: 21300000, guid: 2797c907f01d741489cb1f9fc7f34e32, type: 3}
+    after: {fileID: 21300000, guid: d9b6dd2d323f97741a4f705dfe2bd48b, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: 19cef57fdf0280b468e7b1dd0ea5f7c0, type: 3}
+    mouthTop: {fileID: 21300000, guid: ead7f89a1ab4f92499303e1c20ab3638, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 673a7b2aa5e1a854a90665a4781a86f3, type: 3}
+    mouthScale: 0.509
+    mouthTopPos: {x: 0, y: 175}
+    mouthBottomPos: {x: 0, y: -510}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uB290\uB9BF\uB290\uB9BF \uB2E6\uB2E4\uAC00 \uAE5C\uBE61 \uC7A0\uB4E4\uC5C8\uC5B4\u2026
+      \uB3C4\uC640\uC904\uB798?"
+    thanksLine: "\uCC9C\uCC9C\uD788, \uAF3C\uAF3C\uD788, \uB9E4\uC77C\uB9E4\uC77C!"
+  - id: penguin
+    displayName: "\uD3EC\uD3EC"
+    before: {fileID: 21300000, guid: 467cbcd9aef437341805d84408582d22, type: 3}
+    after: {fileID: 21300000, guid: 8591ac0bf54daad4cb437183cbb3370c, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: 6a8c168d23d32c1439e6ca62b8d0c29f, type: 3}
+    mouthTop: {fileID: 21300000, guid: 76a9a38a649f97446b4dbe1a3251a762, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 8885af6bc26b86a43814800aefc6f1fe, type: 3}
+    mouthScale: 0.463
+    mouthTopPos: {x: 0, y: 57}
+    mouthBottomPos: {x: 0, y: -527}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uC5BC\uC74C\uACFC\uC790\uB97C \uC794\uB729 \uBA39\uC5C8\uB354\uB2C8
+      \uC774\uAC00 \uC2DC\uB824! \uB3C4\uC640\uC918!"
+    thanksLine: "\uC0C1\uCF8C\uD55C \uC774\uB85C \uC2E0\uB098\uAC8C \uBBF8\uB044\uB7FC!"
+  - id: robot
+    displayName: "\uBCFC\uD2B8"
+    before: {fileID: 21300000, guid: f258d0a262ab4a7498dd42e693e72e8b, type: 3}
+    after: {fileID: 21300000, guid: 63d3a4adccefc714588e213f3aea96d9, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: 82740e0beddc0d944bd08e4e736cfe4f, type: 3}
+    mouthTop: {fileID: 21300000, guid: bfb95336fd3ad2347980d66eb8e6023b, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 01e8dbbb15c92c146b6260ef1e405273, type: 3}
+    mouthScale: 0.5
+    mouthTopPos: {x: 10, y: 116.5}
+    mouthBottomPos: {x: 10, y: -481.5}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uC090\uC090! \uC774\uC5D0 \uB048\uC801\uD55C \uAE30\uB984\uB54C\uAC00
+      \uAF08\uC5B4! \uB2E6\uC544 \uC904\uB798?"
+    thanksLine: "\uCDA9\uC804 \uC644\uB8CC! \uC774\uAC00 \uBC18\uC9DD\uBC18\uC9DD!"
+  - id: sheep
+    displayName: "\uBABD\uC2E4"
+    before: {fileID: 21300000, guid: 540d4c842188f8d47bd26ce14149e96d, type: 3}
+    after: {fileID: 21300000, guid: 9481c1ac8a651014294106aaa57b755d, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: f4cc026c956ee494dac77359d65a6c37, type: 3}
+    mouthTop: {fileID: 21300000, guid: 9ce9e08771b6f5249bdee24b8506903a, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 27570517f2ad5f643b9d22e036887228, type: 3}
+    mouthScale: 0.472
+    mouthTopPos: {x: 0, y: 80}
+    mouthBottomPos: {x: 0, y: -516}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uC19C\uC0AC\uD0D5 \uAD6C\uB984\uC744 \uBA39\uC5C8\uB354\uB2C8
+      \uC774\uAC00 \uB048\uC801\uB048\uC801\uD574!"
+    thanksLine: "\uBABD\uAE00\uBABD\uAE00 \uAE30\uBD84\uAE4C\uC9C0 \uAE68\uB057\uD574\uC694!"
+  - id: otter
+    displayName: "\uBAA8\uBAA8"
+    before: {fileID: 21300000, guid: 965139a60beb35a47b77d8d4e0e3192c, type: 3}
+    after: {fileID: 21300000, guid: 87b6c50bd0ad91e4685d45712a334559, type: 3}
+    portrait: {fileID: 0}
+    face: {fileID: 21300000, guid: b8dd13c7de2f9e34bb151247df904bbd, type: 3}
+    mouthTop: {fileID: 21300000, guid: 9b12de68c8479a44d8f3f5983dba1bf2, type: 3}
+    mouthBottom: {fileID: 21300000, guid: 8d1b92f3ae8a02f4b9488463eab87f20, type: 3}
+    mouthScale: 0.486
+    mouthTopPos: {x: 7.5, y: 113}
+    mouthBottomPos: {x: 7.5, y: -524}
+    teethTopShift: -92
+    teethBottomShift: 53
+    requestLine: "\uC870\uAC1C\uB97C \uAE68 \uBA39\uB2E4\uAC00 \uC774\uAC00 \uC6B1\uC2E0\uC6B1\uC2E0\uD574\u2026
+      \uB3C4\uC640\uC918!"
+    thanksLine: "\uAE68\uB057\uD55C \uC774\uB85C \uB9DB\uC788\uAC8C \uB0E0\uB0E0!"
   planets:
   - {fileID: 11400000, guid: d967105971b9c9444a0ff124a7a359c5, type: 2}
   - {fileID: 11400000, guid: 587eaab8799aacc4aa0690e8293bc9c8, type: 2}

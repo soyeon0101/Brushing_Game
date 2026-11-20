@@ -66,6 +66,8 @@ namespace BrushGame
 
     [Header("안내")]
     [SerializeField] private Image _guidePortrait;
+    [Tooltip("안내하는 캐릭터 그림 (로봇 친구). 비우면 환자 얼굴")]
+    [SerializeField] private Sprite _guideSprite;
     [SerializeField] private Text _guideText;
     [SerializeField] private GameObject _handLostOverlay;
     [Tooltip("양치를 멈췄을 때 돌아가며 나오는 문구")]
@@ -156,7 +158,8 @@ namespace BrushGame
 
     public void Setup(PatientInfo patient, int zoneSeconds, PlayerCharacter character)
     {
-      ArtSlot.Apply(_guidePortrait, patient.Portrait);
+      // 안내는 로봇 친구가 한다 (문구가 환자를 "친구"라고 3인칭으로 부르므로)
+      ArtSlot.Apply(_guidePortrait, _guideSprite != null ? _guideSprite : patient.Portrait);
       _battle.SetHeroFrames(character?.battle);
       _zoneSeconds = Mathf.Clamp(zoneSeconds, GuardianSettings.MinZoneSeconds, GuardianSettings.MaxZoneSeconds);
 

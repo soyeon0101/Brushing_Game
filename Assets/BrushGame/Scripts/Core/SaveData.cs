@@ -107,6 +107,10 @@ namespace BrushGame
     public int treatmentCount;
     [Tooltip("우주 항해 지도에서 마지막으로 켜지는 연출을 보여준 발판 수")]
     public int lastSeenLitPads;
+    [Tooltip("환자 도감을 마지막으로 열었을 때 치료한 환자 수 (로비 도감 버튼 NEW 표시용)")]
+    public int lastSeenCuredCount;
+    [Tooltip("배지함을 마지막으로 열었을 때 받은 배지 수 (로비 배지 버튼 NEW 표시용)")]
+    public int lastSeenBadgeCount;
 
     /// <summary>우주 항해 지도의 켜진 발판 수 = 받은 도장 수 (같은 날 같은 끼니는 한 번만이라 규칙이 같다)</summary>
     public int TotalLitPads => stickers.Count;

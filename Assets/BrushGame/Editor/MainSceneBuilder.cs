@@ -178,6 +178,7 @@ namespace BrushGame.EditorTools
 
       FontRoles.ApplyAll();
       UiSkin.ApplyAll();
+      FinishLobby(lobby, flow);
       Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
       EditorSceneManager.SaveScene(scene, ScenePath);
       SetFirstBuildScene(ScenePath);
@@ -266,13 +267,17 @@ namespace BrushGame.EditorTools
     }
 
     [MenuItem("BrushGame/Rebuild Lobby Screen")]
-    public static void RebuildLobby() => RebuildScreen("_lobby", BuildLobby);
+    public static void RebuildLobby() => RebuildScreen("_lobby", BuildLobby, FinishLobby);
+
+    /// <summary>환자 도감을 다시 만든다. 카드 칸 수 = 카탈로그 환자 수 (최소 12, 3의 배수)</summary>
+    [MenuItem("BrushGame/Rebuild Patient Book Screen")]
+    public static void RebuildPatientBook() => RebuildScreen("_patientBook", BuildPatientBook);
 
     [MenuItem("BrushGame/Rebuild Sticker Screen")]
     public static void RebuildStickers() => RebuildScreen("_stickers", BuildStickers);
 
     /// <summary>열려 있는 Main 씬에서 화면 하나만 새로 만들어 GameFlow에 다시 연결하고 저장한다</summary>
-    private static void RebuildScreen<T>(string flowField, Func<Transform, T> build) where T : ScreenBase
+    private static void RebuildScreen<T>(string flowField, Func<Transform, T> build, Action<T, GameFlow> finish = null) where T : ScreenBase
     {
       var flow = Object.FindFirstObjectByType<GameFlow>(FindObjectsInactive.Include);
       var old = Object.FindFirstObjectByType<T>(FindObjectsInactive.Include);
@@ -294,6 +299,7 @@ namespace BrushGame.EditorTools
       SetRef(flow, flowField, screen);
       FontRoles.ApplyAll(screen.transform);
       UiSkin.ApplyAll(screen.transform);
+      finish?.Invoke(screen, flow);
 
       var scene = flow.gameObject.scene;
       EditorSceneManager.MarkSceneDirty(scene);
@@ -1188,57 +1194,313 @@ namespace BrushGame.EditorTools
 
     // ---------- 로비 ----------
 
+    // 로비 색 (UiSkin.Ink 계열 보라 + 분홍 포인트)
+    private static readonly Color LobbyInk = new Color(0.29f, 0.23f, 0.47f);
+    private static readonly Color LobbyInkSoft = new Color(0.49f, 0.44f, 0.66f);
+    private static readonly Color LobbyPurple = new Color(0.54f, 0.44f, 0.88f);
+    private static readonly Color LobbyPink = new Color(1f, 0.42f, 0.68f);
+    private static readonly Color LobbyLine = new Color(0.78f, 0.71f, 0.92f);
+    private static readonly Color LobbyShadow = new Color(0.47f, 0.27f, 0.67f, 0.2f);
+    /// <summary>로비 아래 묶음의 바닥선: 화면 높이의 6% (키 큰 폰일수록 아래 여백도 커진다)</summary>
+    private static readonly Vector2 LobbyBottomLine = new Vector2(0.5f, 0.06f);
+
+    /// <summary>
+    ///   로비 (시안 A): 위 = 프로필 알약(연속 양치 일수) + 보호자 설정 톱니 · 오늘의 칭찬 도장 판
+    ///   · 가운데 = 말풍선 + 환자(배경의 둥근 우주 창문 앞) + 이름표 · 아래 = 치료 시작 + 메뉴 3개.
+    ///   위쪽은 화면 위에, 아래쪽은 화면 아래에 붙고, 가운데 환자 자리는 남는 높이에 맞춰 줄어든다 (FitInParent).
+    ///   작은 꾸밈 그림은 LobbyArt가 그려 Art/UI/Lobby 에 저장한다. 메뉴 버튼 그림·글자는 BrushGame/Lobby 메뉴 스위치를 따른다.
+    /// </summary>
     private static LobbyScreen BuildLobby(Transform parent)
     {
       var (root, c) = NewScreen("Lobby", parent, Cream);
+      var soft = LobbyArt.Soft;
+      var disc = LobbyArt.Disc;
+      var ring = LobbyArt.Ring;
 
-      var profile = Img("ProfileCard", c, new Vector2(0f, -190f), new Vector2(980f, 230f), Color.white, _rounded, Top);
-      var avatar = Img("Avatar", profile.transform, new Vector2(-370f, 0f), new Vector2(180f, 180f), Mint, _circle);
-      var nickname = Txt("Nickname", profile.transform, new Vector2(80f, 25f), new Vector2(620f, 80f), "", 52, Dark, TextAnchor.MiddleLeft, true);
-      Txt("Greeting", profile.transform, new Vector2(80f, -45f), new Vector2(620f, 60f), "오늘도 반짝반짝 치료해볼까요?", 32, Grey, TextAnchor.MiddleLeft);
+      // 아래쪽에서 떠오르는 비눗방울 (내용 뒤)
+      var bubbles = Stretch("Bubbles", c);
+      float[,] bubbleSpots = { { -400f, 300f, 46f, 0.1f }, { 420f, 360f, 32f, 0.55f }, { 300f, 180f, 40f, 0.3f }, { -250f, 120f, 28f, 0.8f } };
+      for (var i = 0; i < bubbleSpots.GetLength(0); i++)
+      {
+        var b = Img($"Bubble{i}", bubbles, new Vector2(bubbleSpots[i, 0], bubbleSpots[i, 1]), Vector2.one * bubbleSpots[i, 2], Color.white, LobbyArt.Bubble, Bottom);
+        Motion(b, UiMotion.Mode.Rise, 620f, 7.5f, bubbleSpots[i, 3]);
+      }
 
-      Txt("TodayLabel", c, new Vector2(0f, 600f), new Vector2(900f, 60f), "오늘의 칭찬 도장", 40, Dark, bold: true);
+      // ----- 위: 프로필 + 톱니 -----
+      var profile = Img("ProfileCard", c, new Vector2(-82f, -130f), new Vector2(796f, 160f), new Color(1f, 1f, 1f, 0.72f), soft, Top);
+      Soft(profile, 80f);
+      Shadowed(profile.gameObject);
+      var avatarRing = Img("AvatarRing", profile.transform, new Vector2(-318f, 0f), new Vector2(136f, 136f), new Color(1f, 0.83f, 0.42f), disc);
+      var avatarBack = Img("AvatarBack", avatarRing.transform, Vector2.zero, new Vector2(122f, 122f), Color.white, disc);
+      avatarBack.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+      // 왕관까지 잘리지 않게 동그라미보다 조금 작게
+      var avatar = Img("Avatar", avatarBack.transform, new Vector2(0f, -4f), new Vector2(110f, 110f), Mint, _circle);
+      var nickname = Txt("Nickname", profile.transform, new Vector2(-75f, 24f), new Vector2(300f, 64f), "", 50, LobbyInk, TextAnchor.MiddleLeft, true);
+      // 긴 닉네임은 글자를 줄여 한 줄에
+      nickname.resizeTextForBestFit = true;
+      nickname.resizeTextMinSize = 30;
+      nickname.resizeTextMaxSize = 50;
+      Txt("Greeting", profile.transform, new Vector2(-75f, -32f), new Vector2(300f, 44f), "오늘도 반짝반짝!", 32, LobbyInkSoft, TextAnchor.MiddleLeft);
+
+      var streak = Img("Streak", profile.transform, new Vector2(282f, 0f), new Vector2(190f, 72f), new Color(1f, 0.5f, 0.3f), soft);
+      Soft(streak, 36f);
+      Img("Star", streak.transform, new Vector2(-56f, 3f), new Vector2(50f, 50f), new Color(1f, 0.95f, 0.6f), _star);
+      var streakText = Txt("StreakText", streak.transform, new Vector2(22f, 2f), new Vector2(120f, 60f), "1일째", 38, Color.white, bold: true);
+
+      var settingsButton = Btn("SettingsButton", c, new Vector2(410f, -130f), new Vector2(136f, 136f), "", new Color(1f, 1f, 1f, 0.75f), LobbyInk, 20, Top, disc);
+      settingsButton.GetComponentInChildren<Text>(true).gameObject.SetActive(false);
+      Shadowed(settingsButton.gameObject);
+      var gearIcon = Img("Icon", settingsButton.transform, Vector2.zero, new Vector2(96f, 96f), Color.white, null);
+      ArtSlot.Apply(gearIcon, LoadArt(IconArtDir, "Icon_Settings"));
+
+      // ----- 오늘의 칭찬 도장 -----
+      var stamps = Img("TodayPanel", c, new Vector2(0f, -472f), new Vector2(900f, 340f), new Color(1f, 1f, 1f, 0.6f), soft, Top);
+      Soft(stamps, 60f);
+      Txt("TodayLabel", stamps.transform, new Vector2(0f, 122f), new Vector2(800f, 56f), "오늘의 칭찬 도장", 40, LobbyPurple, bold: true);
       string[] slotNames = { "아침", "점심", "저녁" };
+      Sprite[] slotIcons = { LobbyArt.Sunrise, LobbyArt.Sun, LobbyArt.Moon };
       var todayStickers = new Object[3];
+      var nowRings = new Object[3];
+      var nowTags = new Object[3];
+      var bobs = new Object[3];
       var stampArt = AssetDatabase.LoadAssetAtPath<Sprite>($"{UiArtDir}/UI_Stamp.png");
       for (var i = 0; i < 3; i++)
       {
-        var slot = Img($"Today{i}", c, new Vector2(-250f + 250f * i, 510f), new Vector2(220f, 110f), Lavender, _rounded);
-        Txt("Label", slot.transform, new Vector2(-40f, 0f), new Vector2(120f, 80f), slotNames[i], 36, Dark, bold: true);
-        var sticker = Stamp(slot.transform, 84f, stampArt);
-        sticker.rectTransform.anchoredPosition = new Vector2(60f, 0f);
+        var slot = Node($"Today{i}", stamps.transform, new Vector2(-270f + 270f * i, -14f), new Vector2(220f, 260f));
+        var bob = slot.gameObject.AddComponent<UiMotion>();
+        bob.Configure(UiMotion.Mode.Bob, 10f, 1.4f);
+        bob.enabled = false;
+        bobs[i] = bob;
+        var nowRing = Img("NowRing", slot, new Vector2(0f, 20f), new Vector2(186f, 186f), new Color(1f, 0.49f, 0.74f), ring);
+        nowRing.gameObject.SetActive(false);
+        nowRings[i] = nowRing.gameObject;
+        Img("Back", slot, new Vector2(0f, 20f), new Vector2(160f, 160f), new Color(1f, 1f, 1f, 0.8f), disc);
+        Img("Dash", slot, new Vector2(0f, 20f), new Vector2(160f, 160f), LobbyLine, LobbyArt.DashRing);
+        Img("Symbol", slot, new Vector2(0f, 20f), new Vector2(70f, 70f), Color.white, slotIcons[i]);
+        var sticker = Stamp(slot, 168f, stampArt);
+        sticker.rectTransform.anchoredPosition = new Vector2(0f, 20f);
+        sticker.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 10f - 10f * i);
         sticker.gameObject.SetActive(false);
         todayStickers[i] = sticker.gameObject;
+        Txt("Label", slot, new Vector2(0f, -100f), new Vector2(200f, 50f), slotNames[i], 36, LobbyInkSoft, bold: true);
+        var tag = Img("NowTag", slot, new Vector2(66f, 96f), new Vector2(104f, 46f), LobbyPink, soft);
+        Soft(tag, 23f);
+        Txt("Label", tag.transform, new Vector2(0f, 1f), new Vector2(104f, 46f), "지금!", 28, Color.white, bold: true);
+        tag.gameObject.SetActive(false);
+        nowTags[i] = tag.gameObject;
       }
 
-      var card = Img("PatientCard", c, new Vector2(0f, 90f), new Vector2(900f, 640f), Color.white, _rounded);
-      var header = Txt("Header", card.transform, new Vector2(0f, 250f), new Vector2(800f, 70f), "아침에 온 친구", 44, Primary, bold: true);
-      var portrait = Img("PatientArt", card.transform, new Vector2(0f, 40f), new Vector2(340f, 340f), Peach, _circle);
-      var patientName = Txt("PatientName", card.transform, new Vector2(0f, -170f), new Vector2(800f, 80f), "", 54, Dark, bold: true);
-      var patientLine = Txt("PatientLine", card.transform, new Vector2(0f, -250f), new Vector2(820f, 80f), "", 34, Grey);
+      // ----- 가운데: 환자 (도장 판 아래 ~ 치료 시작 위, 남는 높이에 맞춰 줄어든다) -----
+      var stage = Stretch("PatientStage", c);
+      stage.anchorMin = new Vector2(0f, LobbyBottomLine.y);
+      stage.offsetMin = new Vector2(0f, 560f);
+      stage.offsetMax = new Vector2(0f, -662f);
+      var patient = Node("Patient", stage, Vector2.zero, new Vector2(1080f, 800f));
+      patient.gameObject.AddComponent<FitInParent>();
 
-      var treat = Btn("TreatButton", c, new Vector2(0f, -380f), new Vector2(800f, 170f), "치료 시작", Green, Color.white, 64);
-      var bookButton = NavButton("BookButton", c, -378f, "환자 도감", "Icon_Book");
-      var stickerButton = NavButton("StickerButton", c, -126f, "스티커판", "Icon_Stickers");
+      Img("Glow", patient, new Vector2(0f, -40f), new Vector2(660f, 660f), new Color(1f, 1f, 1f, 0.75f), LobbyArt.Glow);
+      float[,] sparkles = { { -330f, 60f, 76f, 0f }, { 320f, -20f, 70f, 0.45f }, { -250f, -210f, 54f, 0.75f }, { 290f, 230f, 44f, 0.2f } };
+      for (var i = 0; i < sparkles.GetLength(0); i++)
+      {
+        var s = Img($"Sparkle{i}", patient, new Vector2(sparkles[i, 0], sparkles[i, 1]), Vector2.one * sparkles[i, 2], Color.white, LobbyArt.Sparkle);
+        Motion(s, UiMotion.Mode.Twinkle, 0.3f, 2.4f, sparkles[i, 3]);
+      }
+
+      // 환자를 누르면 흔들며 대사를 다시 말한다. 숨쉬기는 안쪽 그림에, 흔들기는 버튼에
+      var patientButton = Btn("PatientButton", patient, new Vector2(0f, -40f), new Vector2(480f, 480f), "", new Color(1f, 1f, 1f, 0f), LobbyInk, 20, null, disc);
+      patientButton.GetComponentInChildren<Text>(true).gameObject.SetActive(false);
+      patientButton.transition = Selectable.Transition.None;
+      ((RectTransform)patientButton.transform).pivot = new Vector2(0.5f, 0.1f);
+      ((RectTransform)patientButton.transform).anchoredPosition = new Vector2(0f, -40f - 480f * 0.4f);
+      // 피벗을 발밑 쪽에 두어 숨쉬기·흔들기가 바닥을 기준으로 움직이게
+      var portrait = Img("PatientArt", patientButton.transform, new Vector2(0f, -192f), new Vector2(480f, 480f), Peach, _circle);
+      portrait.rectTransform.pivot = new Vector2(0.5f, 0.1f);
+      Motion(portrait, UiMotion.Mode.Breathe, 0.035f, 2.6f);
+      var artShadow = portrait.gameObject.AddComponent<Shadow>();
+      artShadow.effectColor = new Color(0.35f, 0.2f, 0.55f, 0.18f);
+      artShadow.effectDistance = new Vector2(0f, -14f);
+
+      var bubbleHolder = Node("BubbleHolder", patient, new Vector2(0f, 330f), new Vector2(860f, 130f));
+      Motion(bubbleHolder, UiMotion.Mode.Bob, 8f, 3.2f);
+      var bubble = Img("Bubble", bubbleHolder, Vector2.zero, new Vector2(860f, 130f), Color.white, soft);
+      Soft(bubble, 56f);
+      Shadowed(bubble.gameObject);
+      Img("Tail", bubble.transform, new Vector2(0f, -82f), new Vector2(64f, 40f), Color.white, LobbyArt.Tail);
+      var patientLine = Txt("PatientLine", bubble.transform, new Vector2(0f, 2f), new Vector2(800f, 110f), "", 44, LobbyInk);
+      patientLine.resizeTextForBestFit = true;
+      patientLine.resizeTextMinSize = 30;
+      patientLine.resizeTextMaxSize = 44;
+
+      var plate = Node("NamePlate", patient, new Vector2(0f, -350f), new Vector2(1000f, 90f));
+      var plateLayout = plate.gameObject.AddComponent<HorizontalLayoutGroup>();
+      plateLayout.spacing = 22f;
+      plateLayout.childAlignment = TextAnchor.MiddleCenter;
+      plateLayout.childControlWidth = plateLayout.childControlHeight = true;
+      plateLayout.childForceExpandWidth = plateLayout.childForceExpandHeight = false;
+      var chip = Img("HeaderChip", plate, Vector2.zero, new Vector2(260f, 64f), LobbyPurple, soft);
+      Soft(chip, 32f);
+      chip.gameObject.AddComponent<LayoutElement>().preferredHeight = 64f;
+      var chipLayout = chip.gameObject.AddComponent<HorizontalLayoutGroup>();
+      chipLayout.padding = new RectOffset(30, 30, 10, 12);
+      chipLayout.childAlignment = TextAnchor.MiddleCenter;
+      chipLayout.childControlWidth = chipLayout.childControlHeight = true;
+      chipLayout.childForceExpandWidth = chipLayout.childForceExpandHeight = false;
+      var header = Txt("Header", chip.transform, Vector2.zero, new Vector2(200f, 44f), "아침에 온 친구", 32, Color.white, bold: true);
+      header.horizontalOverflow = HorizontalWrapMode.Overflow;
+      var patientName = Txt("PatientName", plate, Vector2.zero, new Vector2(300f, 90f), "", 70, LobbyInk, bold: true);
+      patientName.horizontalOverflow = HorizontalWrapMode.Overflow;
+      var nameOutline = patientName.gameObject.AddComponent<Outline>();
+      nameOutline.effectColor = Color.white;
+      nameOutline.effectDistance = new Vector2(4f, -4f);
+
+      // ----- 아래: 치료 시작 + 메뉴 3개 -----
+      // 아래 묶음은 화면 높이의 6% 위(LobbyBottomLine)를 바닥으로 삼는다: 메뉴 0~296, 치료 시작 344~544, 환자 자리 560~
+      var treat = Btn("TreatButton", c, new Vector2(0f, 444f), new Vector2(860f, 200f), "치료 시작", Green, Color.white, 84, LobbyBottomLine,
+        LoadArt(UiArtDir, "UI_Button"));
+      Motion(treat, UiMotion.Mode.Pulse, 0.035f, 1.8f);
+      treat.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+      var treatLabel = treat.GetComponentInChildren<Text>(true);
+      treatLabel.rectTransform.anchoredPosition = new Vector2(46f, 6f);
+      var brush = Img("Brush", treat.transform, new Vector2(-190f, 10f), new Vector2(150f, 56f), Color.white, LobbyArt.Brush);
+      brush.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 28f);
+      var shine = Img("Shine", treat.transform, new Vector2(-620f, 0f), new Vector2(150f, 320f), new Color(1f, 1f, 1f, 0.55f), LobbyArt.Shine);
+      shine.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -18f);
+      Motion(shine, UiMotion.Mode.Sweep, 1240f, 3.2f, 0f, 0.45f);
+
+      // 메뉴 버튼 그림·글자는 아래 ApplyLobbySlotArt가 GameFlow 스위치에 맞춰 바꾼다
+      var bookButton = LobbyNavButton("BookButton", c, -320f, "환자 도감", LoadArt(IconArtDir, "Icon_Book"), new Color(1f, 0.9f, 0.95f), out var bookNew);
+      var stickerButton = LobbyNavButton("StickerButton", c, 0f, "스티커판", LoadArt(IconArtDir, "Icon_Stickers"), new Color(0.87f, 0.97f, 0.94f), out var stickerNew);
       // 반짝 배지 자리는 우주 항해 지도가 맡는다 (필드 이름은 그대로 _badgeButton)
-      var badgeButton = NavButton("BadgeButton", c, 126f, "지도", "map_icon", MapArtDir);
-      var settingsButton = NavButton("SettingsButton", c, 378f, "보호자 설정", "Icon_Settings");
+      var badgeButton = LobbyNavButton("BadgeButton", c, 320f, "지도", LoadArt(MapArtDir, "map_icon"), new Color(1f, 0.95f, 0.82f), out var badgeNew);
 
       var screen = root.gameObject.AddComponent<LobbyScreen>();
       SetRef(screen, "_avatar", avatar);
       SetRef(screen, "_nickname", nickname);
+      SetRef(screen, "_streakRoot", streak.gameObject);
+      SetRef(screen, "_streakText", streakText);
       SetArray(screen, "_todayStickers", todayStickers);
+      SetArray(screen, "_slotNowRings", nowRings);
+      SetArray(screen, "_slotNowTags", nowTags);
+      SetArray(screen, "_slotBobs", bobs);
       SetRef(screen, "_patientHeader", header);
       SetRef(screen, "_patientPortrait", portrait);
       SetRef(screen, "_patientName", patientName);
       SetRef(screen, "_patientLine", patientLine);
+      SetRef(screen, "_patientButton", patientButton);
+      SetRef(screen, "_bubble", bubble.rectTransform);
       SetRef(screen, "_treatButton", treat);
       SetRef(screen, "_bookButton", bookButton);
       SetRef(screen, "_stickerButton", stickerButton);
       SetRef(screen, "_settingsButton", settingsButton);
       SetRef(screen, "_badgeButton", badgeButton);
+      SetRef(screen, "_bookNew", bookNew);
+      SetRef(screen, "_stickerNew", stickerNew);
+      SetRef(screen, "_badgeNew", badgeNew);
       BuildPracticeConfirm(screen);
       return screen;
+    }
+
+    /// <summary>로비 아래 메뉴 버튼 (시안 A): 연한 색 둥근 판 + 흰 테두리, 위에 그림, 아래에 이름, 오른쪽 위 NEW</summary>
+    private static Button LobbyNavButton(string name, Transform parent, float x, string label, Sprite icon, Color tint, out GameObject newMark)
+    {
+      var button = Btn(name, parent, new Vector2(x, 148f), new Vector2(296f, 296f), label, tint, LobbyInk, 42, LobbyBottomLine, LobbyArt.Soft);
+      var image = (Image)button.targetGraphic;
+      Soft(image, 64f);
+      var border = button.gameObject.AddComponent<Outline>();
+      border.effectColor = Color.white;
+      border.effectDistance = new Vector2(5f, -5f);
+      Shadowed(button.gameObject);
+      var iconImage = Img("Icon", button.transform, new Vector2(0f, 34f), new Vector2(190f, 180f), Color.white, null);
+      ArtSlot.Apply(iconImage, icon);
+      var text = button.GetComponentInChildren<Text>(true).rectTransform;
+      text.anchoredPosition = new Vector2(0f, -104f);
+      text.sizeDelta = new Vector2(280f, 60f);
+
+      var mark = Img("New", button.transform, new Vector2(108f, 134f), new Vector2(112f, 52f), new Color(1f, 0.3f, 0.43f), LobbyArt.Soft);
+      Soft(mark, 26f);
+      var markBorder = mark.gameObject.AddComponent<Outline>();
+      markBorder.effectColor = Color.white;
+      markBorder.effectDistance = new Vector2(3f, -3f);
+      Txt("Label", mark.transform, new Vector2(0f, 1f), new Vector2(112f, 52f), "NEW", 28, Color.white, bold: true);
+      Motion(mark, UiMotion.Mode.Pulse, 0.12f, 1.2f);
+      mark.gameObject.SetActive(false);
+      newMark = mark.gameObject;
+      return button;
+    }
+
+    /// <summary>LobbyArt.Soft(모서리 48px) 판을 모서리 반경 radius로</summary>
+    private static void Soft(Image image, float radius)
+    {
+      image.type = Image.Type.Sliced;
+      image.pixelsPerUnitMultiplier = 48f / radius;
+    }
+
+    private static void Shadowed(GameObject go)
+    {
+      var shadow = go.AddComponent<Shadow>();
+      shadow.effectColor = LobbyShadow;
+      shadow.effectDistance = new Vector2(0f, -10f);
+    }
+
+    private static UiMotion Motion(Component target, UiMotion.Mode mode, float amount, float period, float phase = 0f, float rest = 0.45f)
+    {
+      var motion = target.gameObject.AddComponent<UiMotion>();
+      motion.Configure(mode, amount, period, phase, rest);
+      return motion;
+    }
+
+    /// <summary>
+    ///   UiSkin 다음에 로비만 손본다: 배경을 아래 기준으로 15% 키워 위쪽 어두운 천장을 잘라낸다.
+    ///   메뉴 버튼 그림·글자는 지금 GameFlow 스위치(스티커판/파트너 방, 배지함/지도)에 맞춘다.
+    /// </summary>
+    internal static void FinishLobby(LobbyScreen lobby, GameFlow flow)
+    {
+      var bg = lobby.transform.Find("BgArt") as RectTransform;
+      if (bg != null)
+      {
+        Undo.RecordObject(bg, "Finish Lobby");
+        bg.pivot = new Vector2(0.5f, 0f);
+        bg.localScale = new Vector3(1.15f, 1.15f, 1f);
+      }
+      var tint = lobby.transform.Find("BgTint")?.GetComponent<Image>();
+      if (tint != null)
+      {
+        Undo.RecordObject(tint, "Finish Lobby");
+        tint.color = new Color(1f, 1f, 1f, 0.22f);
+      }
+      if (flow == null)
+      {
+        return;
+      }
+      var so = new SerializedObject(flow);
+      var partner = so.FindProperty("_stickerSlot").enumValueIndex == (int)GameFlow.StickerSlot.PartnerRoom;
+      var map = so.FindProperty("_badgeSlot").enumValueIndex == (int)GameFlow.BadgeSlot.SpaceMap;
+      var lobbySo = new SerializedObject(lobby);
+      SetSlotArt((Button)lobbySo.FindProperty("_stickerButton").objectReferenceValue,
+        partner ? "내 친구" : "스티커판", partner ? LoadArt(PartnerArtDir, "partner_icon") : LoadArt(IconArtDir, "Icon_Stickers"));
+      SetSlotArt((Button)lobbySo.FindProperty("_badgeButton").objectReferenceValue,
+        map ? "지도" : "반짝 배지", map ? LoadArt(MapArtDir, "map_icon") : LoadArt(IconArtDir, "Icon_Badge"));
+    }
+
+    private static void SetSlotArt(Button button, string label, Sprite icon)
+    {
+      if (button == null)
+      {
+        return;
+      }
+      var text = button.transform.Find("Label")?.GetComponent<Text>();
+      if (text != null)
+      {
+        Undo.RecordObject(text, "Lobby Slot");
+        text.text = label;
+      }
+      var iconImage = button.transform.Find("Icon")?.GetComponent<Image>();
+      if (iconImage != null && icon != null)
+      {
+        Undo.RecordObject(iconImage, "Lobby Slot");
+        iconImage.sprite = icon;
+        iconImage.preserveAspect = true;
+      }
     }
 
     /// <summary>뒤로가기 종료 확인 창. 모든 화면과 보호자 설정보다 위에 둔다</summary>
@@ -1304,21 +1566,50 @@ namespace BrushGame.EditorTools
     private static PatientBookScreen BuildPatientBook(Transform parent)
     {
       var (root, c) = NewScreen("PatientBook", parent, Cream);
-      Txt("Title", c, new Vector2(0f, 760f), new Vector2(1000f, 100f), "환자 도감", 64, Dark, bold: true);
-      Txt("Subtitle", c, new Vector2(0f, 680f), new Vector2(1000f, 70f), "치료한 친구들이 여기에 모여요", 38, Grey);
+      // 제목은 화면 위에 붙인다 (키 큰 화면에서 카드 목록에 가리지 않게)
+      Txt("Title", c, new Vector2(0f, -200f), new Vector2(1000f, 100f), "환자 도감", 64, Dark, bold: true, anchor: Top);
+      Txt("Subtitle", c, new Vector2(0f, -280f), new Vector2(1000f, 70f), "치료한 친구들이 여기에 모여요", 38, Grey, anchor: Top);
+
+      // 3칸씩 줄을 지어 아래로 스크롤 (환자가 늘면 카드 칸만 늘어난다)
+      var view = Stretch("Scroll", c);
+      view.offsetMin = new Vector2(0f, 60f);
+      view.offsetMax = new Vector2(0f, -340f);
+      view.gameObject.AddComponent<RectMask2D>();
+      var list = Node("Cards", view, Vector2.zero, new Vector2(960f, 0f), Top);
+      list.pivot = new Vector2(0.5f, 1f);
+      var grid = list.gameObject.AddComponent<GridLayoutGroup>();
+      grid.cellSize = new Vector2(300f, 350f);
+      grid.spacing = new Vector2(30f, 30f);
+      grid.padding = new RectOffset(0, 0, 20, 40);
+      grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+      grid.constraintCount = 3;
+      grid.childAlignment = TextAnchor.UpperCenter;
+      list.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+      var scroll = view.gameObject.AddComponent<ScrollRect>();
+      scroll.content = list;
+      scroll.viewport = view;
+      scroll.horizontal = false;
+      scroll.movementType = ScrollRect.MovementType.Elastic;
+      // 스크롤을 잡는 투명 판 (카드 사이를 끌어도 움직이게)
+      var hit = view.gameObject.AddComponent<Image>();
+      hit.color = new Color(1f, 1f, 1f, 0f);
+
+      var catalog = AssetDatabase.LoadAssetAtPath<GameCatalog>(CatalogPath);
+      var count = Mathf.Max(12, catalog != null && catalog.patients != null ? catalog.patients.Length : 0);
+      count = (count + 2) / 3 * 3;
 
       var screen = root.gameObject.AddComponent<PatientBookScreen>();
       var so = new SerializedObject(screen);
+      so.FindProperty("_scroll").objectReferenceValue = scroll;
       var cards = so.FindProperty("_cards");
-      cards.arraySize = 6;
-      for (var i = 0; i < 6; i++)
+      cards.arraySize = count;
+      for (var i = 0; i < count; i++)
       {
-        var pos = new Vector2(i % 2 == 0 ? -240f : 240f, 330f - 450f * (i / 2));
-        var card = Img($"Card{i}", c, pos, new Vector2(440f, 420f), Color.white, _rounded);
-        var portrait = Img("PatientArt", card.transform, new Vector2(0f, 40f), new Vector2(280f, 280f), Peach, _circle);
-        var patientName = Txt("Name", card.transform, new Vector2(0f, -160f), new Vector2(400f, 70f), "", 44, Dark, bold: true);
-        var locked = Img("Locked", card.transform, Vector2.zero, new Vector2(440f, 420f), new Color(0.86f, 0.86f, 0.9f, 0.95f), _rounded);
-        Txt("Mark", locked.transform, new Vector2(0f, 30f), new Vector2(300f, 200f), "?", 140, Grey, bold: true);
+        var card = Img($"Card{i}", list, Vector2.zero, new Vector2(300f, 350f), Color.white, _rounded);
+        var portrait = Img("PatientArt", card.transform, new Vector2(0f, 30f), new Vector2(240f, 240f), Peach, _circle);
+        var patientName = Txt("Name", card.transform, new Vector2(0f, -135f), new Vector2(280f, 60f), "", 40, Dark, bold: true);
+        var locked = Img("Locked", card.transform, Vector2.zero, new Vector2(300f, 350f), new Color(0.86f, 0.86f, 0.9f, 0.95f), _rounded);
+        Txt("Mark", locked.transform, new Vector2(0f, 20f), new Vector2(240f, 180f), "?", 120, Grey, bold: true);
 
         var e = cards.GetArrayElementAtIndex(i);
         e.FindPropertyRelative("root").objectReferenceValue = card.gameObject;
@@ -1552,6 +1843,7 @@ namespace BrushGame.EditorTools
         SetRef(screen, "_soundOffSprite", LoadArt(HudArtDir, "Hud_SoundOff"));
       }
       SetRef(screen, "_guidePortrait", guidePortrait);
+      SetRef(screen, "_guideSprite", LoadArt(PartnerArtDir, "partner_icon"));
       SetRef(screen, "_guideText", guideText);
       SetRef(screen, "_handLostOverlay", lost.gameObject);
       SetRef(screen, "_pauseOverlay", pauseOverlay.gameObject);

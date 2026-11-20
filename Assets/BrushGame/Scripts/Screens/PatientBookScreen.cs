@@ -17,6 +17,8 @@ namespace BrushGame
   /// <summary>환자 도감: 한 번이라도 치료한 환자가 열린다</summary>
   public class PatientBookScreen : ScreenBase
   {
+    [Tooltip("카드가 많으면 위아래로 넘겨 본다. 열 때마다 맨 위부터")]
+    [SerializeField] private ScrollRect _scroll;
     [SerializeField] private PatientBookCard[] _cards;
     [SerializeField] private Button _backButton;
 
@@ -24,6 +26,10 @@ namespace BrushGame
 
     public void Setup(GameCatalog catalog, SaveData data)
     {
+      if (_scroll != null)
+      {
+        _scroll.verticalNormalizedPosition = 1f;
+      }
       for (var i = 0; i < _cards.Length; i++)
       {
         var card = _cards[i];

@@ -169,6 +169,7 @@ namespace BrushGame
       };
       _lobby.BookPressed += () =>
       {
+        MarkSeen(ref Data.lastSeenCuredCount, Data.curedPatientIds.Count);
         _patientBook.Setup(_catalog, Data);
         Show(_patientBook);
       };
@@ -259,6 +260,7 @@ namespace BrushGame
           ShowSpaceMap();
           return;
         }
+        MarkSeen(ref Data.lastSeenBadgeCount, Data.badgeIds.Count);
         _badges.Setup(_catalog, Data, null);
         Show(_badges);
       };
@@ -371,7 +373,46 @@ namespace BrushGame
       {
         _lobby.SetStickerButtonLabel(Data.partnerName);
       }
+      _lobby.SetNewMarks(BookHasNew(), StickerSlotHasNew(), BadgeSlotHasNew());
       Show(_lobby);
+    }
+
+    // ---------- 로비 버튼 NEW 표시 (그 화면에 들어가면 꺼진다) ----------
+
+    /// <summary>환자 도감: 마지막으로 도감을 연 뒤 새 환자를 치료했을 때</summary>
+    private static bool BookHasNew() => Data.curedPatientIds.Count > Data.lastSeenCuredCount;
+
+    /// <summary>
+    ///   스티커판 자리: 파트너 방이면 로봇이 창고에서 기다리거나(아직 안 데려옴), 깨울 차례이거나, 줄 밥이 있을 때.
+    ///   스티커판이면 치료 뒤 바로 보여 주므로 표시하지 않는다.
+    /// </summary>
+    private bool StickerSlotHasNew()
+    {
+      if (_stickerSlot != StickerSlot.PartnerRoom || _partnerRoom == null)
+      {
+        return false;
+      }
+      return !Data.partnerBrought || Data.PartnerReadyToWake || Data.partnerAwake && Data.PartnerMealsLeft > 0;
+    }
+
+    /// <summary>배지 자리: 지도면 아직 켜지는 연출을 못 본 발판이 있을 때 (치료 중간에 껐을 때 등), 배지함이면 새 배지를 받았을 때</summary>
+    private bool BadgeSlotHasNew()
+    {
+      if (_badgeSlot == BadgeSlot.SpaceMap)
+      {
+        return Data.TotalLitPads > Data.lastSeenLitPads;
+      }
+      return Data.badgeIds.Count > Data.lastSeenBadgeCount;
+    }
+
+    private static void MarkSeen(ref int seen, int count)
+    {
+      if (seen == count)
+      {
+        return;
+      }
+      seen = count;
+      SaveStore.Save();
     }
 
     /// <summary>치료 기록: 스티커(같은 날 같은 끼니는 한 장), 도감, 치료 횟수, 새 배지</summary>

@@ -23,7 +23,8 @@ namespace BrushGame
     [SerializeField] private Button _doneButton;
     [SerializeField] private Button _backButton;
 
-    [SerializeField] private string _defaultNote = "가입 정보는 이 기기에만 저장돼요";
+    [Tooltip("평소 안내 문구 (비우면 이메일이 틀렸을 때만 안내가 나온다)")]
+    [SerializeField] private string _defaultNote = "";
     [SerializeField] private string _badEmailNote = "이메일 주소를 다시 확인해 주세요";
 
     public event Action<string, string> Confirmed;
